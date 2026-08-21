@@ -1,12 +1,15 @@
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import type { PiExtensionContext } from "./pi-types.ts";
 import { sessionDirOf, sessionIdOf } from "./pi-types.ts";
 import { BlockStore, storeDirForSession } from "./store.ts";
 
 export function openStore(ctx: PiExtensionContext): BlockStore {
   const sessionId = sessionIdOf(ctx);
-  const sessionDir = sessionDirOf(ctx) ?? join(ctx.cwd, ".pi", "sessions");
+  const sessionDir = sessionDirOf(ctx);
+  if (!sessionDir) {
+    throw new Error("historical-memory: session directory is unavailable");
+  }
   return new BlockStore(storeDirForSession(sessionDir, sessionId), sessionId);
 }
 
@@ -43,7 +46,12 @@ export function sessionIdFromFile(sessionFile: string): string | undefined {
     // Fall through to filename parsing.
   }
   const base = sessionFile.split(/[/\\]/).pop() ?? "";
-  const match =
-    base.match(/_([0-9a-f]{8}-[0-9a-f-]{27,})\.jsonl$/i) || base.match(/^([0-9a-f-]{8,})\.jsonl$/i);
-  return match?.[1];
+  const stem = base.replace(/\.jsonl$/i, "");
+  const separator = stem.lastIndexOf("_");
+  if (separator >= 0) {
+    const id = stem.slice(separator + 1);
+    if (id.length >= 8) return id;
+  }
+  if (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(stem) || /^[0-9a-f-]{8,}$/i.test(stem)) return stem;
+  return undefined;
 }

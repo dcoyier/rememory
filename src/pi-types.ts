@@ -76,7 +76,7 @@ export interface PiExtensionAPI {
       details?: unknown;
     },
     options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
-  ): void | Promise<void>;
+  ): void;
   appendEntry(customType: string, data?: unknown): void;
   registerCommand(
     name: string,

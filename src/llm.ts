@@ -34,6 +34,7 @@ export function createCompleteFn(
         maxTokens,
         signal,
         sessionId: routingId,
+        cacheRetention: "none",
       },
     );
 

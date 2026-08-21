@@ -19,6 +19,7 @@ interface RuntimeState {
   store: BlockStore | null;
   pendingFreeze: PendingFreeze | null;
   breadcrumbWritten: boolean;
+  persistedNotes: Set<string>;
 }
 
 export default function historicalMemory(pi: PiExtensionAPI): void {
@@ -30,6 +31,7 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
     store: null,
     pendingFreeze: null,
     breadcrumbWritten: false,
+    persistedNotes: new Set(),
   };
 
   pi.registerCommand("memory", {
@@ -56,7 +58,7 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
   });
 
   pi.on("session_start", (_event, ctx) => bindSession(ctx, state));
-  pi.on("session_switch", (_event, ctx) => bindSession(ctx, state));
+  pi.on("session_shutdown", () => invalidateSession(state));
 
   pi.on("session_before_compact", (event, ctx) => {
     state.compacting = true;
@@ -126,8 +128,9 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
         },
       });
       if (!result.note) return;
-      return await persistNote(pi, event, result.note, {
+      return persistNote(pi, event, result.note, {
         stillCurrent: () => state.recallGeneration === generation,
+        persistedBodies: state.persistedNotes,
         onPersistError: (message) => {
           ctx.ui.notify?.(`Historical memory persist failed: ${message}`, "warning");
         },
@@ -144,12 +147,22 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
   });
 }
 
-function bindSession(ctx: PiExtensionContext, state: RuntimeState): void {
+function invalidateSession(state: RuntimeState): void {
   state.recallGeneration += 1;
-  state.store = openStore(ctx);
-  state.breadcrumbWritten = false;
   state.protocolRunning = false;
   state.compacting = false;
   state.pendingFreeze = null;
-  inheritFromParent(ctx, state.store);
+  state.persistedNotes.clear();
+}
+
+function bindSession(ctx: PiExtensionContext, state: RuntimeState): void {
+  invalidateSession(state);
+  state.breadcrumbWritten = false;
+  try {
+    state.store = openStore(ctx);
+    inheritFromParent(ctx, state.store);
+  } catch (error) {
+    state.store = null;
+    ctx.ui.notify?.(`Historical memory could not open store: ${messageOf(error)}`, "error");
+  }
 }

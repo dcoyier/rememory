@@ -14,7 +14,7 @@ Pi extension: when context is compacted, the departing window is frozen intact a
 | 1 | One block-agent call. `yes` text becomes the note. No deliberation. |
 | 2+ | Round 1 all blocks in parallel → if all `no`, stop → else D1 → Round 2 all blocks in parallel (including those that said `no`) → final note |
 
-Notes are appended with `sendMessage({ triggerTurn: false })` so they are real session messages, then spliced into this call’s snapshot only if it does not already contain them. They are never stripped, never steering, and they freeze later as part of whatever span compact takes.
+Notes are spliced into this call’s `context` snapshot so the model sees them on this request. `sendMessage({ triggerTurn: false })` writes the note into the session once per body (not on every tool-loop call). They are never stripped, never steering, and they freeze later as part of whatever span compact takes.
 
 Block and deliberation calls use the **same model as the main agent**, as bare completions (no tools, no Pi system prompt). If a block + current context cannot fit that model’s window, that block is treated as `no` rather than truncated.
 

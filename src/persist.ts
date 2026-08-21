@@ -6,19 +6,23 @@ import {
   type SerializedMessage,
 } from "./serialize.ts";
 
-export async function persistNote(
+export function persistNote(
   pi: PiExtensionAPI,
   event: { messages?: PiMessage[] },
   noteBody: string,
   options?: {
     stillCurrent?: () => boolean;
+    persistedBodies?: Set<string>;
     onPersistError?: (message: string) => void;
   },
-): Promise<{ messages: PiMessage[] } | undefined> {
+): { messages: PiMessage[] } | undefined {
   if (options?.stillCurrent && !options.stillCurrent()) return undefined;
 
   const snapshot = (event.messages ?? []) as SerializedMessage[];
-  if (snapshotAlreadyHasNote(snapshot, noteBody)) return undefined;
+  if (snapshotAlreadyHasNote(snapshot, noteBody)) {
+    options?.persistedBodies?.add(noteBody);
+    return undefined;
+  }
 
   const content = formatMemoryNote(noteBody);
   const details = { id: `note-${Date.now()}`, kind: CUSTOM_TYPE };
@@ -31,20 +35,23 @@ export async function persistNote(
     timestamp: Date.now(),
   };
 
-  if (options?.stillCurrent && !options.stillCurrent()) return undefined;
-
-  try {
-    await pi.sendMessage(
-      {
-        customType: CUSTOM_TYPE,
-        content,
-        display: true,
-        details,
-      },
-      { triggerTurn: false },
-    );
-  } catch (error) {
-    options?.onPersistError?.(error instanceof Error ? error.message : String(error));
+  const alreadySent = options?.persistedBodies?.has(noteBody) === true;
+  if (!alreadySent) {
+    if (options?.stillCurrent && !options.stillCurrent()) return undefined;
+    try {
+      pi.sendMessage(
+        {
+          customType: CUSTOM_TYPE,
+          content,
+          display: true,
+          details,
+        },
+        { triggerTurn: false },
+      );
+      options?.persistedBodies?.add(noteBody);
+    } catch (error) {
+      options?.onPersistError?.(error instanceof Error ? error.message : String(error));
+    }
   }
 
   if (options?.stillCurrent && !options.stillCurrent()) return undefined;

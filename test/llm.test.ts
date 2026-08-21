@@ -5,12 +5,16 @@ import type { PiAssistantMessage, PiExtensionContext, PiModel } from "../src/pi-
 
 const model: PiModel = { id: "m", provider: "p", contextWindow: 100_000 };
 
-function ctxWith(response: PiAssistantMessage): PiExtensionContext {
+function ctxWith(
+  response: PiAssistantMessage,
+  onComplete?: (options: unknown) => void,
+): PiExtensionContext {
   return {
     cwd: "/tmp",
     model,
     modelRegistry: {
-      async complete() {
+      async complete(_model, _context, options) {
+        onComplete?.(options);
         return response;
       },
     },
@@ -62,5 +66,18 @@ describe("createCompleteFn", () => {
       () => complete({ purpose: "block", blockNumber: 1, systemPrompt: "s", userPrompt: "u" }),
       /provider down/,
     );
+  });
+
+  it("disables prompt cache retention on nested completes", async () => {
+    let options: { cacheRetention?: string } | undefined;
+    const complete = createCompleteFn(
+      ctxWith({ role: "assistant", content: [{ type: "text", text: "no" }] }, (opts) => {
+        options = opts as { cacheRetention?: string };
+      }),
+      model,
+      "sess",
+    );
+    await complete({ purpose: "block", blockNumber: 1, systemPrompt: "s", userPrompt: "u" });
+    assert.equal(options?.cacheRetention, "none");
   });
 });

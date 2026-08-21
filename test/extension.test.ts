@@ -170,6 +170,13 @@ describe("extension wiring", () => {
       assert.equal(payload.options.triggerTurn, false);
       assert.equal(payload.options.deliverAs, undefined);
       assert.equal(result?.messages.at(-1)?.customType, CUSTOM_TYPE);
+
+      const again = (await handlers.get("context")?.[0]?.(
+        { messages: [{ role: "user", content: "continue" }] },
+        c,
+      )) as { messages: Array<{ customType?: string }> } | undefined;
+      assert.equal(sent.length, 1);
+      assert.equal(again?.messages.at(-1)?.customType, CUSTOM_TYPE);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -273,7 +280,8 @@ describe("extension wiring", () => {
 
       const pending = handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "continue" }] }, a);
       while (!enteredComplete) await new Promise((r) => setImmediate(r));
-      await handlers.get("session_switch")?.[0]?.({}, b);
+      await handlers.get("session_shutdown")?.[0]?.({}, a);
+      await handlers.get("session_start")?.[0]?.({}, b);
       release();
       const result = await pending;
       assert.equal(result, undefined);
