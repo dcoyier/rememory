@@ -23,7 +23,6 @@ describe("skipReason", () => {
     compacting: false,
     treeSummarizing: false,
     protocolRunning: false,
-    blockCount: 3,
     hasModel: true,
   };
 
@@ -32,8 +31,7 @@ describe("skipReason", () => {
     assert.equal(skipReason({ ...base, treeSummarizing: true }), "tree-summarizing");
   });
 
-  it("skips when there are no blocks or no model", () => {
-    assert.equal(skipReason({ ...base, blockCount: 0 }), "no-blocks");
+  it("skips when there is no model", () => {
     assert.equal(skipReason({ ...base, hasModel: false }), "no-model");
   });
 

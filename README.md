@@ -20,14 +20,25 @@ Block and deliberation calls use the **same model as the main agent**, as bare c
 
 ## Install
 
-From a local checkout:
+Add the package (path or git) to Pi:
+
+```json
+{
+  "packages": [
+    "/path/to/pi-historical-memory"
+  ]
+}
+```
+
+Or load the extension directly:
 
 ```bash
-# settings.json packages list, or:
 pi -e /path/to/pi-historical-memory/src/index.ts
 ```
 
-Pi package manifest is in `package.json` (`pi.extensions`). You can also copy/symlink this folder into `~/.pi/agent/extensions/`.
+You can also copy or symlink this folder into `~/.pi/agent/extensions/`. `/memory off` is process-local; it does not persist across Pi restarts.
+
+Requires a Pi that exposes `session_before_compact` (with `preparation.messagesToSummarize`) and a `context` hook that can return `{ messages }`. Notes are stored with `sendMessage({ triggerTurn: false })`.
 
 ## Disk layout
 

@@ -60,7 +60,6 @@ export interface PiExtensionContext {
   sessionManager: PiSessionManager;
   signal?: AbortSignal;
   cwd: string;
-  hasUI?: boolean;
   ui: {
     setStatus?: (key: string, text: string | undefined) => void;
     notify?: (text: string, level?: "info" | "warning" | "error") => void;

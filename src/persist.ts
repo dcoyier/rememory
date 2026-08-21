@@ -10,7 +10,11 @@ export async function persistNote(
   pi: PiExtensionAPI,
   event: { messages?: PiMessage[] },
   noteBody: string,
+  onPersistError?: (message: string) => void,
 ): Promise<{ messages: PiMessage[] } | undefined> {
+  const snapshot = (event.messages ?? []) as SerializedMessage[];
+  if (snapshotAlreadyHasNote(snapshot, noteBody)) return undefined;
+
   const content = formatMemoryNote(noteBody);
   const details = { id: `note-${Date.now()}`, kind: CUSTOM_TYPE };
   const noteMessage: PiMessage = {
@@ -32,11 +36,9 @@ export async function persistNote(
       },
       { triggerTurn: false },
     );
-  } catch {
-    // Persistence failed; still splice into this call so the main model sees the note.
+  } catch (error) {
+    onPersistError?.(error instanceof Error ? error.message : String(error));
   }
 
-  const snapshot = (event.messages ?? []) as SerializedMessage[];
-  if (snapshotAlreadyHasNote(snapshot, noteBody)) return undefined;
   return { messages: [...(event.messages ?? []), noteMessage] };
 }

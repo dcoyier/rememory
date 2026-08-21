@@ -57,6 +57,7 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
   pi.on("session_switch", (_event, ctx) => bindSession(ctx, state));
 
   pi.on("session_before_compact", (event, ctx) => {
+    state.treeSummarizing = false;
     state.compacting = true;
     try {
       const frozen = freezeBlock(event, ctx, state.store, pi, state.breadcrumbWritten);
@@ -87,17 +88,16 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
       compacting: state.compacting,
       treeSummarizing: state.treeSummarizing,
       protocolRunning: state.protocolRunning,
-      blockCount: state.store?.blockCount ?? 0,
       hasModel: Boolean(ctx.model),
     });
     if (skip) return;
 
     const store = state.store ?? openStore(ctx);
+    state.store = store;
     const blocks = store.loadAll();
     if (blocks.length === 0 || !ctx.model) return;
 
     state.protocolRunning = true;
-    state.store = store;
     try {
       const messages = (event.messages ?? []) as SerializedMessage[];
       const result = await runRecall({
@@ -109,10 +109,12 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
         onStatus: (text) => ctx.ui.setStatus?.(STATUS_KEY, text),
       });
       if (!result.note) return;
-      return await persistNote(pi, event, result.note);
+      return await persistNote(pi, event, result.note, (message) => {
+        ctx.ui.notify?.(`Historical memory persist failed: ${message}`, "warning");
+      });
     } catch (error) {
       if (isAbort(error)) return;
-      ctx.ui.notify?.(`Historical memory recall failed: ${messageOf(error)}`, "warning");
+      ctx.ui.notify?.(`Historical memory recall failed: ${messageOf(error)}`, "error");
     } finally {
       state.protocolRunning = false;
       ctx.ui.setStatus?.(STATUS_KEY, undefined);

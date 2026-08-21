@@ -32,6 +32,11 @@ describe("serializeMessages", () => {
     assert.equal(text.includes("aaaa"), false);
   });
 
+  it("serializes string assistant content", () => {
+    const text = serializeMessages([{ role: "assistant", content: "hello there" }]);
+    assert.equal(text, "[Assistant]: hello there");
+  });
+
   it("labels prior memory notes", () => {
     const text = serializeMessages([
       {

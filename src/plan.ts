@@ -5,7 +5,6 @@ export type RecallSkipReason =
   | "compacting"
   | "tree-summarizing"
   | "reentrancy"
-  | "no-blocks"
   | "no-model";
 
 export function recallPlan(blockCount: number): RecallPlan {
@@ -19,14 +18,12 @@ export function skipReason(input: {
   compacting: boolean;
   treeSummarizing: boolean;
   protocolRunning: boolean;
-  blockCount: number;
   hasModel: boolean;
 }): RecallSkipReason | null {
   if (!input.enabled) return "disabled";
   if (input.compacting) return "compacting";
   if (input.treeSummarizing) return "tree-summarizing";
   if (input.protocolRunning) return "reentrancy";
-  if (input.blockCount <= 0) return "no-blocks";
   if (!input.hasModel) return "no-model";
   return null;
 }

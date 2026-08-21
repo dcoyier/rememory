@@ -1,7 +1,5 @@
 import { CUSTOM_TYPE, NOTE_PREFIX } from "./constants.ts";
 
-export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-
 export type ContentBlock =
   | { type: "text"; text: string }
   | { type: "image"; mimeType?: string; data?: string }
@@ -78,6 +76,10 @@ export function serializeMessages(messages: SerializedMessage[]): string {
     }
 
     if (role === "assistant") {
+      if (typeof msg.content === "string") {
+        if (msg.content) parts.push(`[Assistant]: ${msg.content}`);
+        continue;
+      }
       const content = Array.isArray(msg.content) ? (msg.content as ContentBlock[]) : [];
       const thinking: string[] = [];
       const toolCalls: string[] = [];

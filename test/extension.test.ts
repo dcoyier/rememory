@@ -11,6 +11,7 @@ type Handler = (event: unknown, ctx: PiExtensionContext) => unknown;
 
 function fakePi() {
   const handlers = new Map<string, Handler[]>();
+  const commands = new Map<string, (args: string, ctx: PiExtensionContext) => unknown>();
   const sent: unknown[] = [];
   const entries: unknown[] = [];
   const pi: PiExtensionAPI = {
@@ -25,9 +26,11 @@ function fakePi() {
     appendEntry(customType, data) {
       entries.push({ customType, data });
     },
-    registerCommand() {},
+    registerCommand(name, spec) {
+      commands.set(name, spec.handler);
+    },
   };
-  return { pi, handlers, sent, entries };
+  return { pi, handlers, commands, sent, entries };
 }
 
 function ctx(overrides: Partial<PiExtensionContext> & { sessionDir: string; sessionId: string }): PiExtensionContext {
@@ -166,6 +169,114 @@ describe("extension wiring", () => {
       assert.equal(payload.options.triggerTurn, false);
       assert.equal(payload.options.deliverAs, undefined);
       assert.equal(result?.messages.at(-1)?.customType, CUSTOM_TYPE);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not persist a note already in the snapshot", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hm-ext-"));
+    try {
+      const { pi, handlers, sent } = fakePi();
+      historicalMemory(pi);
+      const c = ctx({
+        sessionDir: dir,
+        sessionId: "s4",
+        modelRegistry: {
+          async complete() {
+            return { role: "assistant", content: [{ type: "text", text: "yes\nUse staging." }] };
+          },
+        },
+      });
+      await handlers.get("session_start")?.[0]?.({}, c);
+      await handlers.get("session_before_compact")?.[0]?.(
+        { reason: "manual", preparation: { messagesToSummarize: [{ role: "user", content: "old" }] } },
+        c,
+      );
+      await handlers.get("session_compact")?.[0]?.({}, c);
+
+      const existing = {
+        role: "custom",
+        customType: CUSTOM_TYPE,
+        content: "Historical memory note:\nUse staging.",
+      };
+      const result = await handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "go" }, existing] }, c);
+      assert.equal(result, undefined);
+      assert.equal(sent.length, 0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("skips recall during tree summarization", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hm-ext-"));
+    try {
+      let completeCalls = 0;
+      const { pi, handlers } = fakePi();
+      historicalMemory(pi);
+      const c = ctx({
+        sessionDir: dir,
+        sessionId: "s5",
+        modelRegistry: {
+          async complete() {
+            completeCalls += 1;
+            return { role: "assistant", content: [{ type: "text", text: "no" }] };
+          },
+        },
+      });
+      await handlers.get("session_start")?.[0]?.({}, c);
+      await handlers.get("session_before_compact")?.[0]?.(
+        { reason: "manual", preparation: { messagesToSummarize: [{ role: "user", content: "old" }] } },
+        c,
+      );
+      await handlers.get("session_compact")?.[0]?.({}, c);
+      completeCalls = 0;
+      await handlers.get("session_before_tree")?.[0]?.({}, c);
+      await handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "now" }] }, c);
+      assert.equal(completeCalls, 0);
+      await handlers.get("session_tree")?.[0]?.({}, c);
+      await handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "now" }] }, c);
+      assert.ok(completeCalls >= 1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("toggles via /memory on and off", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hm-ext-"));
+    try {
+      let completeCalls = 0;
+      const notifies: string[] = [];
+      const { pi, handlers, commands } = fakePi();
+      historicalMemory(pi);
+      const c = ctx({
+        sessionDir: dir,
+        sessionId: "s6",
+        modelRegistry: {
+          async complete() {
+            completeCalls += 1;
+            return { role: "assistant", content: [{ type: "text", text: "no" }] };
+          },
+        },
+      });
+      c.ui.notify = (text) => {
+        notifies.push(text);
+      };
+      await handlers.get("session_start")?.[0]?.({}, c);
+      await handlers.get("session_before_compact")?.[0]?.(
+        { reason: "manual", preparation: { messagesToSummarize: [{ role: "user", content: "old" }] } },
+        c,
+      );
+      await handlers.get("session_compact")?.[0]?.({}, c);
+      commands.get("memory")?.("off", c);
+      completeCalls = 0;
+      await handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "now" }] }, c);
+      assert.equal(completeCalls, 0);
+      commands.get("memory")?.("on", c);
+      await handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "now" }] }, c);
+      assert.ok(completeCalls >= 1);
+      commands.get("memory")?.("", c);
+      assert.ok(notifies.some((n) => n.includes("on") && n.includes("1 blocks")));
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

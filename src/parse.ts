@@ -41,10 +41,6 @@ export function parseDeliberationNote(raw: string): string | null {
 
   const normalized = trimmed.toLowerCase().replace(/[.!\s]+$/g, "");
   if (EMPTY_DELIBERATION_SENTINELS.includes(normalized)) return null;
-
-  // A lone "no" paragraph with no other substance.
-  if (/^no\s*$/i.test(trimmed)) return null;
-
   return trimmed;
 }
 

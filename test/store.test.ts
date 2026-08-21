@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -24,6 +24,25 @@ describe("BlockStore", () => {
       const block = reopened.load(1);
       assert.equal(block.serialized, "[User]: hello");
       assert.equal(block.messages[0]?.role, "user");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rebuilds the index from block files if index.json is corrupt", () => {
+    const dir = mkdtempSync(join(tmpdir(), "hm-store-"));
+    try {
+      const store = new BlockStore(join(dir, "sess-1"), "sess-1");
+      store.append({
+        reason: "threshold",
+        messages: [{ role: "user", content: "hello" }],
+        serialized: "[User]: hello",
+        tokenEstimate: 4,
+      });
+      writeFileSync(join(store.dir, "index.json"), "{not json");
+      const reopened = new BlockStore(store.dir, "sess-1");
+      assert.equal(reopened.blockCount, 1);
+      assert.equal(reopened.load(1).serialized, "[User]: hello");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

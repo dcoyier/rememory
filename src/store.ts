@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync, existsSync, cpSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync, existsSync, cpSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { STORE_DIR_NAME } from "./constants.ts";
 import type { SerializedMessage } from "./serialize.ts";
@@ -140,15 +140,44 @@ export class BlockStore {
 function loadIndex(dir: string, sessionId: string): StoreIndex {
   const path = join(dir, INDEX_NAME);
   if (!existsSync(path)) {
-    return { version: 1, sessionId, blocks: [] };
+    return rebuildIndexFromFiles(dir, sessionId) ?? { version: 1, sessionId, blocks: [] };
   }
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8")) as StoreIndex;
     if (parsed.version !== 1 || !Array.isArray(parsed.blocks)) {
-      return { version: 1, sessionId, blocks: [] };
+      return rebuildIndexFromFiles(dir, sessionId) ?? { version: 1, sessionId, blocks: [] };
     }
     return { ...parsed, sessionId: parsed.sessionId || sessionId };
   } catch {
-    return { version: 1, sessionId, blocks: [] };
+    return rebuildIndexFromFiles(dir, sessionId) ?? { version: 1, sessionId, blocks: [] };
   }
+}
+
+function rebuildIndexFromFiles(dir: string, sessionId: string): StoreIndex | null {
+  const blocksDir = join(dir, BLOCKS_DIR);
+  if (!existsSync(blocksDir)) return null;
+  const files = readdirSync(blocksDir)
+    .filter((name) => name.endsWith(".json"))
+    .sort();
+  if (files.length === 0) return null;
+  const blocks: BlockMeta[] = [];
+  for (const name of files) {
+    try {
+      const raw = JSON.parse(readFileSync(join(blocksDir, name), "utf8")) as FrozenBlock;
+      if (typeof raw.n !== "number") continue;
+      blocks.push({
+        n: raw.n,
+        file: join(BLOCKS_DIR, name),
+        createdAt: raw.createdAt,
+        reason: raw.reason,
+        messageCount: raw.messages?.length ?? 0,
+        tokenEstimate: 0,
+        firstKeptEntryId: raw.firstKeptEntryId,
+      });
+    } catch {
+      // Skip a broken file; keep the rest.
+    }
+  }
+  blocks.sort((a, b) => a.n - b.n);
+  return { version: 1, sessionId, blocks };
 }
