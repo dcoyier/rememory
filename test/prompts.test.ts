@@ -36,9 +36,14 @@ describe("prompts", () => {
     assert.ok(hist < current && current < delib && delib < note);
   });
 
-  it("leaves the deliberation prompt unchanged from the original", () => {
+  it("keeps the two-round deliberation contract and round-2 grounding", () => {
     assert.ok(DELIBERATION_SYSTEM_PROMPT.includes("This system runs for exactly two rounds"));
     assert.ok(DELIBERATION_SYSTEM_PROMPT.includes("Aim for a maximum of 1,000 tokens"));
     assert.ok(DELIBERATION_SYSTEM_PROMPT.includes("If nothing useful surfaced, produce no memory note"));
+    assert.ok(
+      DELIBERATION_SYSTEM_PROMPT.includes(
+        "Carefully note which historical block each contribution came from, and what the previous synthesis has already settled on.",
+      ),
+    );
   });
 });

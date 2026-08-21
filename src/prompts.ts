@@ -63,7 +63,7 @@ This system runs for exactly two rounds. Write with this in mind:
 
 For Round 1, produce an intermediate deliberation for the historical block agents to use in Round 2. Focus on surfacing connections, relevant past information, unresolved issues, and possible corrections that the block agents should reconsider. Do not write a final memory note or attempt to make the result self-contained; prioritize useful signals for the second round over polished presentation.
 
-For Round 2, produce the final memory note to be inserted into the main agent’s chronological context. Make it self-contained and concise, preserving only information from the historical blocks that is useful to the main agent’s current situation. Aim for a maximum of 1,000 tokens, using substantially less when there is little useful information. If nothing useful surfaced, produce no memory note. Really take care in what you pass to the main agent.`;
+For Round 2, produce the final memory note to be inserted into the main agent’s chronological context. Carefully note which historical block each contribution came from, and what the previous synthesis has already settled on. Make it self-contained and concise, preserving only information from the historical blocks that is useful to the main agent’s current situation. Aim for a maximum of 1,000 tokens, using substantially less when there is little useful information. If nothing useful surfaced, produce no memory note. Really take care in what you pass to the main agent.`;
 
 export function buildBlockUserPrompt(input: {
   historicalBlock: string;
