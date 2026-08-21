@@ -1,0 +1,19 @@
+{
+  "name": "pi-historical-memory",
+  "version": "0.1.0",
+  "description": "Lossless historical-block memory for the Pi coding agent: freeze on compact, two-round recall before every model call.",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
+  "scripts": {
+    "test": "tsx --test --test-reporter=spec test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
