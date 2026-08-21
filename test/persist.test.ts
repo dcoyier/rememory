@@ -27,6 +27,23 @@ describe("persistNote", () => {
     assert.equal(result, undefined);
     assert.equal(sent.length, 0);
   });
+
+  it("skips persist when the session is no longer current", async () => {
+    const sent: unknown[] = [];
+    const pi = {
+      sendMessage(message: unknown) {
+        sent.push(message);
+      },
+    } as PiExtensionAPI;
+    const result = await persistNote(
+      pi,
+      { messages: [{ role: "user", content: "go" }] },
+      "Use staging.",
+      { stillCurrent: () => false },
+    );
+    assert.equal(result, undefined);
+    assert.equal(sent.length, 0);
+  });
 });
 
 describe("sessionIdFromFile", () => {

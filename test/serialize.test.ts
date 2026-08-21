@@ -61,4 +61,16 @@ describe("snapshotAlreadyHasNote", () => {
     assert.equal(snapshotAlreadyHasNote(messages, "other"), false);
     assert.equal(snapshotAlreadyHasNote([{ role: "user", content: "hi" }], body), false);
   });
+
+  it("does not treat a substring overlap as the same note", () => {
+    const messages = [
+      {
+        role: "custom",
+        customType: CUSTOM_TYPE,
+        content: formatMemoryNote("Auth is in .env.local"),
+      },
+    ];
+    assert.equal(snapshotAlreadyHasNote(messages, "Auth"), false);
+    assert.equal(snapshotAlreadyHasNote(messages, "Auth is in .env.local"), true);
+  });
 });

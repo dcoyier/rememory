@@ -1,4 +1,4 @@
-import { FIT_OUTPUT_RESERVE } from "./constants.ts";
+import { DELIBERATION_MAX_TOKENS, FIT_OUTPUT_RESERVE } from "./constants.ts";
 import { isAbort } from "./errors.ts";
 import { promptFitsWindow } from "./fit.ts";
 import {
@@ -64,6 +64,9 @@ export async function runRecall(input: {
     deliberation: string,
     round: 1 | 2,
   ): Promise<BlockContribution> => {
+    if (block.unreadable) {
+      return { kind: "no", blockNumber: block.n };
+    }
     const userPrompt = buildBlockUserPrompt({
       historicalBlock: block.serialized,
       currentContext,
@@ -172,7 +175,7 @@ async function runDeliberation(input: {
     systemPrompt: DELIBERATION_SYSTEM_PROMPT,
     userPrompt,
     contextWindow: input.contextWindow,
-    outputReserve: FIT_OUTPUT_RESERVE,
+    outputReserve: DELIBERATION_MAX_TOKENS,
   });
   if (!fits) return null;
   throwIfAborted(input.signal);

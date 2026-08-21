@@ -113,13 +113,14 @@ describe("extension wiring", () => {
         },
         c,
       );
-      assert.ok(entries.length >= 1);
+      assert.equal(entries.length, 0);
 
       const during = await handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "now" }] }, c);
       assert.equal(during, undefined);
       assert.equal(completeCalls, 0);
 
       await handlers.get("session_compact")?.[0]?.({}, c);
+      assert.ok(entries.length >= 1);
       completeCalls = 0;
       await handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "now" }] }, c);
       assert.ok(completeCalls >= 1);
@@ -208,37 +209,78 @@ describe("extension wiring", () => {
     }
   });
 
-  it("skips recall during tree summarization", async () => {
+  it("does not freeze a block when compact fails", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hm-ext-"));
     try {
-      let completeCalls = 0;
-      const { pi, handlers } = fakePi();
+      const notifies: string[] = [];
+      const { pi, handlers, commands, entries } = fakePi();
       historicalMemory(pi);
-      const c = ctx({
-        sessionDir: dir,
-        sessionId: "s5",
+      const c = ctx({ sessionDir: dir, sessionId: "s5" });
+      c.ui.notify = (text) => {
+        notifies.push(text);
+      };
+      await handlers.get("session_start")?.[0]?.({}, c);
+      const compactEvent = {
+        reason: "threshold",
+        preparation: { messagesToSummarize: [{ role: "user", content: "old" }] },
+      };
+      await handlers.get("session_before_compact")?.[0]?.(compactEvent, c);
+      await handlers.get("session_compact_failed")?.[0]?.({}, c);
+      commands.get("memory")?.("", c);
+      assert.ok(notifies.some((n) => n.includes("0 blocks")));
+      assert.equal(entries.length, 0);
+
+      await handlers.get("session_before_compact")?.[0]?.(compactEvent, c);
+      await handlers.get("session_compact")?.[0]?.({}, c);
+      notifies.length = 0;
+      commands.get("memory")?.("", c);
+      assert.ok(notifies.some((n) => n.includes("1 blocks")));
+      assert.equal(entries.length, 1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("drops an in-flight note after the session is replaced", async () => {
+    const dirA = mkdtempSync(join(tmpdir(), "hm-ext-a-"));
+    const dirB = mkdtempSync(join(tmpdir(), "hm-ext-b-"));
+    try {
+      let enteredComplete = false;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const { pi, handlers, sent } = fakePi();
+      historicalMemory(pi);
+      const a = ctx({
+        sessionDir: dirA,
+        sessionId: "sA",
         modelRegistry: {
           async complete() {
-            completeCalls += 1;
-            return { role: "assistant", content: [{ type: "text", text: "no" }] };
+            enteredComplete = true;
+            await gate;
+            return { role: "assistant", content: [{ type: "text", text: "yes\nUse staging." }] };
           },
         },
       });
-      await handlers.get("session_start")?.[0]?.({}, c);
+      const b = ctx({ sessionDir: dirB, sessionId: "sB" });
+      await handlers.get("session_start")?.[0]?.({}, a);
       await handlers.get("session_before_compact")?.[0]?.(
         { reason: "manual", preparation: { messagesToSummarize: [{ role: "user", content: "old" }] } },
-        c,
+        a,
       );
-      await handlers.get("session_compact")?.[0]?.({}, c);
-      completeCalls = 0;
-      await handlers.get("session_before_tree")?.[0]?.({}, c);
-      await handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "now" }] }, c);
-      assert.equal(completeCalls, 0);
-      await handlers.get("session_tree")?.[0]?.({}, c);
-      await handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "now" }] }, c);
-      assert.ok(completeCalls >= 1);
+      await handlers.get("session_compact")?.[0]?.({}, a);
+
+      const pending = handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "continue" }] }, a);
+      while (!enteredComplete) await new Promise((r) => setImmediate(r));
+      await handlers.get("session_switch")?.[0]?.({}, b);
+      release();
+      const result = await pending;
+      assert.equal(result, undefined);
+      assert.equal(sent.length, 0);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dirA, { recursive: true, force: true });
+      rmSync(dirB, { recursive: true, force: true });
     }
   });
 

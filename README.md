@@ -4,7 +4,7 @@ Pi extension: when context is compacted, the departing window is frozen intact a
 
 ## Behavior
 
-**Freeze.** On `session_before_compact`, write `messagesToSummarize` + split-turn prefix to disk as the next block. Pi’s normal compact still runs; that summary is the continuity patch. Recall does not run during compact or branch summarization.
+**Freeze.** On `session_before_compact`, snapshot `messagesToSummarize` + split-turn prefix in memory. The snapshot is written as Block N only after `session_compact` succeeds; cancelled or failed compact drops it so the same window is not frozen twice. Pi’s normal compact still runs; that summary is the continuity patch. Recall does not run during compact.
 
 **Recall.** On the `context` hook (every model call):
 
@@ -38,7 +38,7 @@ pi -e /path/to/pi-historical-memory/src/index.ts
 
 You can also copy or symlink this folder into `~/.pi/agent/extensions/`. `/memory off` is process-local; it does not persist across Pi restarts.
 
-Requires a Pi that exposes `session_before_compact` (with `preparation.messagesToSummarize`) and a `context` hook that can return `{ messages }`. Notes are stored with `sendMessage({ triggerTurn: false })`.
+Requires a Pi that exposes `session_before_compact` (with `preparation.messagesToSummarize`), `session_compact` / `session_compact_failed`, and a `context` hook that can return `{ messages }`. Notes are stored with `sendMessage({ triggerTurn: false })`.
 
 ## Disk layout
 

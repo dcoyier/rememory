@@ -21,14 +21,12 @@ describe("skipReason", () => {
   const base = {
     enabled: true,
     compacting: false,
-    treeSummarizing: false,
     protocolRunning: false,
     hasModel: true,
   };
 
-  it("skips compaction and tree summarization", () => {
+  it("skips compaction", () => {
     assert.equal(skipReason({ ...base, compacting: true }), "compacting");
-    assert.equal(skipReason({ ...base, treeSummarizing: true }), "tree-summarizing");
   });
 
   it("skips when there is no model", () => {

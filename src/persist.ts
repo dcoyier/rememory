@@ -10,8 +10,13 @@ export async function persistNote(
   pi: PiExtensionAPI,
   event: { messages?: PiMessage[] },
   noteBody: string,
-  onPersistError?: (message: string) => void,
+  options?: {
+    stillCurrent?: () => boolean;
+    onPersistError?: (message: string) => void;
+  },
 ): Promise<{ messages: PiMessage[] } | undefined> {
+  if (options?.stillCurrent && !options.stillCurrent()) return undefined;
+
   const snapshot = (event.messages ?? []) as SerializedMessage[];
   if (snapshotAlreadyHasNote(snapshot, noteBody)) return undefined;
 
@@ -26,6 +31,8 @@ export async function persistNote(
     timestamp: Date.now(),
   };
 
+  if (options?.stillCurrent && !options.stillCurrent()) return undefined;
+
   try {
     await pi.sendMessage(
       {
@@ -37,8 +44,10 @@ export async function persistNote(
       { triggerTurn: false },
     );
   } catch (error) {
-    onPersistError?.(error instanceof Error ? error.message : String(error));
+    options?.onPersistError?.(error instanceof Error ? error.message : String(error));
   }
+
+  if (options?.stillCurrent && !options.stillCurrent()) return undefined;
 
   return { messages: [...(event.messages ?? []), noteMessage] };
 }

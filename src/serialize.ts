@@ -157,9 +157,7 @@ export function isMemoryNoteMessage(message: SerializedMessage): boolean {
 
 export function messageHasNoteText(message: SerializedMessage, noteBody: string): boolean {
   if (!isMemoryNoteMessage(message)) return false;
-  const formatted = formatMemoryNote(noteBody);
-  const text = asText(message.content).trim();
-  return text === formatted || text.includes(noteBody.trim());
+  return asText(message.content).trim() === formatMemoryNote(noteBody);
 }
 
 export function snapshotAlreadyHasNote(messages: SerializedMessage[], noteBody: string): boolean {

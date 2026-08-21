@@ -22,6 +22,8 @@ export interface FrozenBlock {
   firstKeptEntryId?: string;
   messages: SerializedMessage[];
   serialized: string;
+  /** Index lists this block, but the file could not be read. Recall treats it as `no`. */
+  unreadable?: boolean;
 }
 
 export interface StoreIndex {
@@ -69,7 +71,16 @@ export class BlockStore {
       try {
         blocks.push(this.load(meta.n));
       } catch {
-        // Skip unreadable files; recall should not fail the main agent.
+        // Keep the slot so two index entries still run the 2+ protocol.
+        blocks.push({
+          n: meta.n,
+          createdAt: meta.createdAt,
+          reason: meta.reason,
+          firstKeptEntryId: meta.firstKeptEntryId,
+          messages: [],
+          serialized: "",
+          unreadable: true,
+        });
       }
     }
     return blocks;

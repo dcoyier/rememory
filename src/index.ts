@@ -1,6 +1,6 @@
 import { STATUS_KEY } from "./constants.ts";
 import { isAbort, messageOf } from "./errors.ts";
-import { freezeBlock } from "./freeze.ts";
+import { commitFreeze, prepareFreeze, type PendingFreeze } from "./freeze.ts";
 import { createCompleteFn } from "./llm.ts";
 import { persistNote } from "./persist.ts";
 import { skipReason } from "./plan.ts";
@@ -14,9 +14,10 @@ import { sessionIdOf } from "./pi-types.ts";
 interface RuntimeState {
   enabled: boolean;
   compacting: boolean;
-  treeSummarizing: boolean;
   protocolRunning: boolean;
+  recallGeneration: number;
   store: BlockStore | null;
+  pendingFreeze: PendingFreeze | null;
   breadcrumbWritten: boolean;
 }
 
@@ -24,9 +25,10 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
   const state: RuntimeState = {
     enabled: true,
     compacting: false,
-    treeSummarizing: false,
     protocolRunning: false,
+    recallGeneration: 0,
     store: null,
+    pendingFreeze: null,
     breadcrumbWritten: false,
   };
 
@@ -57,36 +59,46 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
   pi.on("session_switch", (_event, ctx) => bindSession(ctx, state));
 
   pi.on("session_before_compact", (event, ctx) => {
-    state.treeSummarizing = false;
     state.compacting = true;
     try {
-      const frozen = freezeBlock(event, ctx, state.store, pi, state.breadcrumbWritten);
-      state.store = frozen.store;
-      state.breadcrumbWritten = frozen.breadcrumbWritten;
+      const prepared = prepareFreeze(event, ctx, state.store);
+      state.store = prepared.store;
+      state.pendingFreeze = prepared.pending;
     } catch (error) {
+      state.pendingFreeze = null;
       ctx.ui.notify?.(`Historical memory freeze failed: ${messageOf(error)}`, "error");
     }
   });
 
-  pi.on("session_compact", () => {
-    state.compacting = false;
-  });
-  pi.on("session_compact_failed", () => {
-    state.compacting = false;
+  pi.on("session_compact", (_event, ctx) => {
+    try {
+      if (state.pendingFreeze && state.store) {
+        const committed = commitFreeze(
+          state.pendingFreeze,
+          state.store,
+          pi,
+          state.breadcrumbWritten,
+        );
+        state.store = committed.store;
+        state.breadcrumbWritten = committed.breadcrumbWritten;
+      }
+    } catch (error) {
+      ctx.ui.notify?.(`Historical memory freeze failed: ${messageOf(error)}`, "error");
+    } finally {
+      state.pendingFreeze = null;
+      state.compacting = false;
+    }
   });
 
-  pi.on("session_before_tree", () => {
-    state.treeSummarizing = true;
-  });
-  pi.on("session_tree", () => {
-    state.treeSummarizing = false;
+  pi.on("session_compact_failed", () => {
+    state.pendingFreeze = null;
+    state.compacting = false;
   });
 
   pi.on("context", async (event, ctx) => {
     const skip = skipReason({
       enabled: state.enabled,
       compacting: state.compacting,
-      treeSummarizing: state.treeSummarizing,
       protocolRunning: state.protocolRunning,
       hasModel: Boolean(ctx.model),
     });
@@ -97,6 +109,7 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
     const blocks = store.loadAll();
     if (blocks.length === 0 || !ctx.model) return;
 
+    const generation = state.recallGeneration;
     state.protocolRunning = true;
     try {
       const messages = (event.messages ?? []) as SerializedMessage[];
@@ -106,27 +119,37 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
         complete: createCompleteFn(ctx, ctx.model, sessionIdOf(ctx)),
         signal: ctx.signal,
         contextWindow: ctx.model.contextWindow,
-        onStatus: (text) => ctx.ui.setStatus?.(STATUS_KEY, text),
+        onStatus: (text) => {
+          if (state.recallGeneration === generation) {
+            ctx.ui.setStatus?.(STATUS_KEY, text);
+          }
+        },
       });
       if (!result.note) return;
-      return await persistNote(pi, event, result.note, (message) => {
-        ctx.ui.notify?.(`Historical memory persist failed: ${message}`, "warning");
+      return await persistNote(pi, event, result.note, {
+        stillCurrent: () => state.recallGeneration === generation,
+        onPersistError: (message) => {
+          ctx.ui.notify?.(`Historical memory persist failed: ${message}`, "warning");
+        },
       });
     } catch (error) {
       if (isAbort(error)) return;
       ctx.ui.notify?.(`Historical memory recall failed: ${messageOf(error)}`, "error");
     } finally {
-      state.protocolRunning = false;
-      ctx.ui.setStatus?.(STATUS_KEY, undefined);
+      if (state.recallGeneration === generation) {
+        state.protocolRunning = false;
+        ctx.ui.setStatus?.(STATUS_KEY, undefined);
+      }
     }
   });
 }
 
 function bindSession(ctx: PiExtensionContext, state: RuntimeState): void {
+  state.recallGeneration += 1;
   state.store = openStore(ctx);
   state.breadcrumbWritten = false;
   state.protocolRunning = false;
   state.compacting = false;
-  state.treeSummarizing = false;
+  state.pendingFreeze = null;
   inheritFromParent(ctx, state.store);
 }

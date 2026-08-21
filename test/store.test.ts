@@ -67,4 +67,31 @@ describe("BlockStore", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("keeps an unreadable block slot so two entries still use the full plan", () => {
+    const dir = mkdtempSync(join(tmpdir(), "hm-store-"));
+    try {
+      const store = new BlockStore(join(dir, "sess-1"), "sess-1");
+      store.append({
+        reason: "threshold",
+        messages: [{ role: "user", content: "one" }],
+        serialized: "one",
+        tokenEstimate: 1,
+      });
+      store.append({
+        reason: "threshold",
+        messages: [{ role: "user", content: "two" }],
+        serialized: "two",
+        tokenEstimate: 1,
+      });
+      writeFileSync(join(store.dir, "blocks", "0002.json"), "{not json");
+      const loaded = store.loadAll();
+      assert.equal(loaded.length, 2);
+      assert.equal(loaded[0]?.unreadable, undefined);
+      assert.equal(loaded[1]?.unreadable, true);
+      assert.equal(loaded[1]?.n, 2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

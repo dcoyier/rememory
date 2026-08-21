@@ -154,4 +154,22 @@ describe("runRecall", () => {
     assert.deepEqual(result.skippedBlocks, [1]);
     assert.equal(calls.length, 0);
   });
+
+  it("treats an unreadable block as no without collapsing to the single-block plan", async () => {
+    const { calls, complete } = scriptedComplete((call) => {
+      if (call.purpose === "block") return "yes\nFrom the readable block";
+      if (call.purpose === "deliberation" && call.round === 1) return "readable block had a signal";
+      return "From the readable block";
+    });
+    const result = await runRecall({
+      blocks: [block(1, "ok"), { ...block(2, ""), serialized: "", unreadable: true }],
+      currentContext: "now",
+      complete,
+    });
+    assert.equal(result.plan, "full");
+    assert.equal(result.round1[1]?.kind, "no");
+    assert.equal(result.note, "From the readable block");
+    assert.equal(calls.filter((c) => c.purpose === "block" && c.blockNumber === 2).length, 0);
+    assert.ok(calls.some((c) => c.purpose === "deliberation"));
+  });
 });
