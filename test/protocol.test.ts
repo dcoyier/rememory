@@ -122,6 +122,23 @@ describe("runRecall", () => {
     assert.ok(maxInFlight >= 3);
   });
 
+  it("treats a thrown block call as no without failing the round", async () => {
+    const { complete } = scriptedComplete((call) => {
+      if (call.purpose === "block" && call.blockNumber === 1) throw new Error("boom");
+      if (call.purpose === "block") return "yes\nFrom block 2";
+      if (call.purpose === "deliberation" && call.round === 1) return "block 2 had a signal";
+      return "From block 2";
+    });
+    const result = await runRecall({
+      blocks: [block(1, "a"), block(2, "b")],
+      currentContext: "now",
+      complete,
+    });
+    assert.equal(result.round1[0]?.kind, "no");
+    assert.equal(result.round1[1]?.kind, "yes");
+    assert.equal(result.note, "From block 2");
+  });
+
   it("skips a block that cannot fit the model window instead of truncating", async () => {
     const huge = block(1, "x".repeat(10_000));
     const { calls, complete } = scriptedComplete(() => {

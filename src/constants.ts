@@ -18,4 +18,7 @@ export const EMPTY_DELIBERATION_SENTINELS = [
   "no memory note",
   "produce no memory note",
   "no_memory_note",
+  "no note",
+  "nothing useful",
+  "nothing useful surfaced",
 ];

@@ -1,4 +1,5 @@
 import { FIT_OUTPUT_RESERVE } from "./constants.ts";
+import { isAbort } from "./errors.ts";
 import { promptFitsWindow } from "./fit.ts";
 import {
   allBlocksSaidNo,
@@ -81,19 +82,24 @@ export async function runRecall(input: {
       return { kind: "no", blockNumber: block.n };
     }
     throwIfAborted(signal);
-    const raw = await complete(
-      {
-        purpose: "block",
-        blockNumber: block.n,
-        totalBlocks,
-        round,
-        systemPrompt: BLOCK_SYSTEM_PROMPT,
-        userPrompt,
-      },
-      signal,
-    );
-    throwIfAborted(signal);
-    return parseBlockOutput(raw, block.n);
+    try {
+      const raw = await complete(
+        {
+          purpose: "block",
+          blockNumber: block.n,
+          totalBlocks,
+          round,
+          systemPrompt: BLOCK_SYSTEM_PROMPT,
+          userPrompt,
+        },
+        signal,
+      );
+      throwIfAborted(signal);
+      return parseBlockOutput(raw, block.n);
+    } catch (error) {
+      if (isAbort(error)) throw error;
+      return { kind: "no", blockNumber: block.n };
+    }
   };
 
   const runBlocks = async (deliberation: string, round: 1 | 2): Promise<BlockContribution[]> => {
@@ -170,21 +176,26 @@ async function runDeliberation(input: {
   });
   if (!fits) return null;
   throwIfAborted(input.signal);
-  const raw = await input.complete(
-    {
-      purpose: "deliberation",
-      round: input.round,
-      systemPrompt: DELIBERATION_SYSTEM_PROMPT,
-      userPrompt,
-    },
-    input.signal,
-  );
-  throwIfAborted(input.signal);
-  if (input.round === 1) {
-    const trimmed = raw.trim();
-    return trimmed ? trimmed : null;
+  try {
+    const raw = await input.complete(
+      {
+        purpose: "deliberation",
+        round: input.round,
+        systemPrompt: DELIBERATION_SYSTEM_PROMPT,
+        userPrompt,
+      },
+      input.signal,
+    );
+    throwIfAborted(input.signal);
+    if (input.round === 1) {
+      const trimmed = raw.trim();
+      return trimmed ? trimmed : null;
+    }
+    return parseDeliberationNote(raw);
+  } catch (error) {
+    if (isAbort(error)) throw error;
+    return null;
   }
-  return parseDeliberationNote(raw);
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

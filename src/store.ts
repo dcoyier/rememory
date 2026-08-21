@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync, existsSync, cpSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { STORE_DIR_NAME } from "./constants.ts";
 import type { SerializedMessage } from "./serialize.ts";
 
 export type CompactReason = "manual" | "threshold" | "overflow" | string;
@@ -44,7 +45,7 @@ function atomicWrite(file: string, contents: string): void {
 }
 
 export function storeDirForSession(sessionDir: string, sessionId: string): string {
-  return join(sessionDir, "historical-memory", sessionId);
+  return join(sessionDir, STORE_DIR_NAME, sessionId);
 }
 
 export class BlockStore {
@@ -62,12 +63,16 @@ export class BlockStore {
     return this.index.blocks.length;
   }
 
-  get metas(): BlockMeta[] {
-    return this.index.blocks;
-  }
-
   loadAll(): FrozenBlock[] {
-    return this.index.blocks.map((meta) => this.load(meta.n));
+    const blocks: FrozenBlock[] = [];
+    for (const meta of this.index.blocks) {
+      try {
+        blocks.push(this.load(meta.n));
+      } catch {
+        // Skip unreadable files; recall should not fail the main agent.
+      }
+    }
+    return blocks;
   }
 
   load(n: number): FrozenBlock {
@@ -118,6 +123,7 @@ export class BlockStore {
 
   copyFrom(sourceDir: string): void {
     if (!existsSync(sourceDir)) return;
+    if (sourceDir === this.dir) return;
     if (existsSync(this.dir)) rmSync(this.dir, { recursive: true, force: true });
     mkdirSync(dirname(this.dir), { recursive: true });
     cpSync(sourceDir, this.dir, { recursive: true });

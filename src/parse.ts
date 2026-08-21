@@ -1,3 +1,5 @@
+import { EMPTY_DELIBERATION_SENTINELS } from "./constants.ts";
+
 export type BlockContribution =
   | { kind: "no"; blockNumber: number }
   | { kind: "yes"; blockNumber: number; text: string };
@@ -38,18 +40,7 @@ export function parseDeliberationNote(raw: string): string | null {
   if (!trimmed) return null;
 
   const normalized = trimmed.toLowerCase().replace(/[.!\s]+$/g, "");
-  const sentinels = [
-    "no",
-    "n/a",
-    "none",
-    "no memory note",
-    "produce no memory note",
-    "no_memory_note",
-    "no note",
-    "nothing useful",
-    "nothing useful surfaced",
-  ];
-  if (sentinels.includes(normalized)) return null;
+  if (EMPTY_DELIBERATION_SENTINELS.includes(normalized)) return null;
 
   // A lone "no" paragraph with no other substance.
   if (/^no\s*$/i.test(trimmed)) return null;
@@ -59,13 +50,4 @@ export function parseDeliberationNote(raw: string): string | null {
 
 export function allBlocksSaidNo(contributions: BlockContribution[]): boolean {
   return contributions.length === 0 || contributions.every((c) => c.kind === "no");
-}
-
-export function yesContributions(contributions: BlockContribution[]): Array<{
-  blockNumber: number;
-  text: string;
-}> {
-  return contributions
-    .filter((c): c is { kind: "yes"; blockNumber: number; text: string } => c.kind === "yes")
-    .map((c) => ({ blockNumber: c.blockNumber, text: c.text }));
 }
