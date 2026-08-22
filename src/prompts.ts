@@ -60,7 +60,7 @@ Do not summarize the current agent context. The main agent and block agents alre
 
 Keep only information that is meaningfully useful to what the main agent is currently understanding, reasoning about, or doing. Durable user preferences, standing instructions, and constraints that are missing from the current context should be kept even when the current task does not mention them; omit them when they are already adequately captured there. Prefer omission over including historical information that is merely related but unlikely to be useful.
 
-The main agent asks a specific question by running bash exactly like: echo "Memory: <question>". If that question is present, this cycle's synthesis should answer it from the block contributions.
+The main agent asks a specific question by running bash exactly like: echo "Memory: <question>". If that question is present in the most recent main agent tool call, this cycle's synthesis should answer it from the block contributions.
 
 This system runs for exactly two rounds. Write with this in mind:
 

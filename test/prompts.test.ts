@@ -64,7 +64,7 @@ describe("prompts", () => {
       ),
     );
     assert.ok(DELIBERATION_SYSTEM_PROMPT.includes('echo "Memory: <question>"'));
-    assert.ok(DELIBERATION_SYSTEM_PROMPT.includes("this cycle's synthesis should answer it"));
+    assert.ok(DELIBERATION_SYSTEM_PROMPT.includes("present in the most recent main agent tool call"));
     assert.ok(MAIN_AGENT_SYSTEM_APPEND.includes('echo "Memory: <question>"'));
   });
 });
