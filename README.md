@@ -58,6 +58,10 @@ Forked sessions copy the parent archive when the new session has no blocks yet.
 - `/memory` — status (on/off, block count, path)
 - `/memory off` / `/memory on` — toggle for this process
 
+## Future
+
+Once the block count hits a threshold, later work could merge them through a binary tree so the archive does not grow without bound. Pairwise merges would keep older history addressable without running recall over every leaf block.
+
 ## Tests
 
 ```bash
