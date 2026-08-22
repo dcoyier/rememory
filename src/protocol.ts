@@ -147,6 +147,7 @@ export async function runRecall(input: {
   }
 
   onStatus?.("memory d1");
+  debugRecall("deliberation-start", { round: 1, afterCompact: Boolean(afterCompact) });
   const d1 = await runDeliberation({
     complete,
     signal,
@@ -161,6 +162,7 @@ export async function runRecall(input: {
   const round2 = await runBlocks(d1 ?? "", 2);
 
   onStatus?.("memory d2");
+  debugRecall("deliberation-start", { round: 2, afterCompact: Boolean(afterCompact) });
   const note = await runDeliberation({
     complete,
     signal,
@@ -219,6 +221,7 @@ async function runDeliberation(input: {
       input.signal,
     );
     throwIfAborted(input.signal);
+    debugRecall("deliberation-raw", { round: input.round, raw: raw.slice(0, 300) });
     if (input.round === 1) {
       const trimmed = raw.trim();
       return trimmed ? trimmed : null;

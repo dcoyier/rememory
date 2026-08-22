@@ -68,3 +68,12 @@ Once the block count hits a threshold, later work could merge them through a bin
 npm install
 npm test
 ```
+
+Live RPC tests against a real Pi + model (OpenRouter `stealth/ox-alpha` by default) live in `scripts/live/`. They need `PI_BIN`, `PI_CODING_AGENT_DIR`, and `OPENROUTER_API_KEY` or `/tmp/hm-live/openrouter.key`. The harness forces `compaction.keepRecentTokens: 1` so a short chat can compact without a huge filler turn.
+
+```bash
+npm run test:live
+```
+
+- `scripts/live/two-block.mjs` — two isolated eras, full R1 → D1 → R2 → D2 recall, then `echo "Memory:"`
+- `scripts/live/toggle-inherit.mjs` — `/memory off` stays silent, `/memory on` recovers, notes persist once, freeze into the next block, and a child session inherits the archive

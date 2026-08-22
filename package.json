@@ -9,7 +9,8 @@
     "extensions": ["./src/index.ts"]
   },
   "scripts": {
-    "test": "tsx --test --test-reporter=spec test/*.test.ts"
+    "test": "tsx --test --test-reporter=spec test/*.test.ts",
+    "test:live": "node scripts/live/two-block.mjs && node scripts/live/toggle-inherit.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
