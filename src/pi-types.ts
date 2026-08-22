@@ -44,6 +44,7 @@ export interface PiModelRegistry {
       sessionId?: string;
       cacheRetention?: string;
       reasoning?: string;
+      reasoningEffort?: string;
     },
   ): Promise<PiAssistantMessage>;
 }

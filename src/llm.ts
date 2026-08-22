@@ -36,13 +36,10 @@ export function createCompleteFn(
         signal,
         sessionId: routingId,
         cacheRetention: "none",
-        // Ox-alpha and similar endpoints reject requests that disable reasoning.
-        ...(model.reasoning
-          ? {
-              reasoning:
-                ctx.thinkingLevel && ctx.thinkingLevel !== "off" ? ctx.thinkingLevel : "low",
-            }
-          : {}),
+        // modelRegistry.complete is the raw stream API (not streamSimple).
+        // It reads reasoningEffort. Ox-alpha rejects requests that omit/disable it.
+        reasoningEffort:
+          ctx.thinkingLevel && ctx.thinkingLevel !== "off" ? ctx.thinkingLevel : "low",
       },
     );
 
