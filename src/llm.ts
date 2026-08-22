@@ -12,7 +12,8 @@ export function createCompleteFn(
   sessionId: string,
 ): CompleteFn {
   return async (call: LlmCall, signal?: AbortSignal) => {
-    const maxTokens = call.purpose === "block" ? BLOCK_MAX_TOKENS : DELIBERATION_MAX_TOKENS;
+    const maxTokens =
+      call.maxTokens ?? (call.purpose === "block" ? BLOCK_MAX_TOKENS : DELIBERATION_MAX_TOKENS);
     const routingId =
       call.purpose === "block"
         ? `historical-memory:${sessionId}:block:${call.blockNumber}`

@@ -172,4 +172,23 @@ describe("runRecall", () => {
     assert.equal(calls.filter((c) => c.purpose === "block" && c.blockNumber === 2).length, 0);
     assert.ok(calls.some((c) => c.purpose === "deliberation"));
   });
+
+  it("raises the final-note token ceiling after compact", async () => {
+    const { calls, complete } = scriptedComplete((call) => {
+      if (call.purpose === "block") return "yes\nConstraint A";
+      if (call.purpose === "deliberation" && call.round === 1) return "A matters";
+      return "Constraint A";
+    });
+    await runRecall({
+      blocks: [block(1, "a"), block(2, "b")],
+      currentContext: "now",
+      complete,
+      afterCompact: true,
+    });
+    const d2 = calls.find((c) => c.purpose === "deliberation" && c.round === 2);
+    assert.equal(d2?.maxTokens, 4096);
+    assert.ok(d2?.userPrompt.includes("<AFTER_COMPACTION>"));
+    const d1 = calls.find((c) => c.purpose === "deliberation" && c.round === 1);
+    assert.equal(d1?.maxTokens, undefined);
+  });
 });

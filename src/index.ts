@@ -20,6 +20,7 @@ interface RuntimeState {
   pendingFreeze: PendingFreeze | null;
   breadcrumbWritten: boolean;
   persistedNotes: Set<string>;
+  freshCompact: boolean;
 }
 
 export default function historicalMemory(pi: PiExtensionAPI): void {
@@ -32,6 +33,7 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
     pendingFreeze: null,
     breadcrumbWritten: false,
     persistedNotes: new Set(),
+    freshCompact: false,
   };
 
   pi.registerCommand("memory", {
@@ -83,6 +85,7 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
         );
         state.store = committed.store;
         state.breadcrumbWritten = committed.breadcrumbWritten;
+        state.freshCompact = true;
       }
     } catch (error) {
       ctx.ui.notify?.(`Historical memory freeze failed: ${messageOf(error)}`, "error");
@@ -112,6 +115,8 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
     if (blocks.length === 0 || !ctx.model) return;
 
     const generation = state.recallGeneration;
+    const afterCompact = state.freshCompact;
+    state.freshCompact = false;
     state.protocolRunning = true;
     try {
       const messages = (event.messages ?? []) as SerializedMessage[];
@@ -121,6 +126,7 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
         complete: createCompleteFn(ctx, ctx.model, sessionIdOf(ctx)),
         signal: ctx.signal,
         contextWindow: ctx.model.contextWindow,
+        afterCompact,
         onStatus: (text) => {
           if (state.recallGeneration === generation) {
             ctx.ui.setStatus?.(STATUS_KEY, text);
@@ -153,6 +159,7 @@ function invalidateSession(state: RuntimeState): void {
   state.compacting = false;
   state.pendingFreeze = null;
   state.persistedNotes.clear();
+  state.freshCompact = false;
 }
 
 function bindSession(ctx: PiExtensionContext, state: RuntimeState): void {

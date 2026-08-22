@@ -1,4 +1,4 @@
-import { DELIBERATION_MAX_TOKENS, FIT_OUTPUT_RESERVE } from "./constants.ts";
+import { AFTER_COMPACT_NOTE_MAX_TOKENS, DELIBERATION_MAX_TOKENS, FIT_OUTPUT_RESERVE } from "./constants.ts";
 import { isAbort } from "./errors.ts";
 import { promptFitsWindow } from "./fit.ts";
 import {
@@ -25,6 +25,7 @@ export interface LlmCall {
   round?: 1 | 2;
   systemPrompt: string;
   userPrompt: string;
+  maxTokens?: number;
 }
 
 export type CompleteFn = (call: LlmCall, signal?: AbortSignal) => Promise<string>;
@@ -43,9 +44,10 @@ export async function runRecall(input: {
   complete: CompleteFn;
   signal?: AbortSignal;
   contextWindow?: number;
+  afterCompact?: boolean;
   onStatus?: (text: string) => void;
 }): Promise<ProtocolResult> {
-  const { blocks, currentContext, complete, signal, contextWindow, onStatus } = input;
+  const { blocks, currentContext, complete, signal, contextWindow, afterCompact, onStatus } = input;
   const totalBlocks = blocks.length;
   const plan = recallPlan(totalBlocks);
   const empty: ProtocolResult = {
@@ -94,6 +96,8 @@ export async function runRecall(input: {
           round,
           systemPrompt: BLOCK_SYSTEM_PROMPT,
           userPrompt,
+          maxTokens:
+            afterCompact && plan === "single" ? AFTER_COMPACT_NOTE_MAX_TOKENS : undefined,
         },
         signal,
       );
@@ -133,6 +137,7 @@ export async function runRecall(input: {
     contributions: round1,
     round: 1,
     contextWindow,
+    afterCompact,
   });
 
   const round2 = await runBlocks(d1 ?? "", 2);
@@ -146,6 +151,7 @@ export async function runRecall(input: {
     contributions: round2,
     round: 2,
     contextWindow,
+    afterCompact,
   });
 
   return { note, plan, round1, round2, skippedBlocks };
@@ -159,7 +165,10 @@ async function runDeliberation(input: {
   contributions: BlockContribution[];
   round: 1 | 2;
   contextWindow?: number;
+  afterCompact?: boolean;
 }): Promise<string | null> {
+  const expandNote = input.round === 2 && input.afterCompact;
+  const outputReserve = expandNote ? AFTER_COMPACT_NOTE_MAX_TOKENS : DELIBERATION_MAX_TOKENS;
   const userPrompt = buildDeliberationUserPrompt({
     roundNumber: input.round,
     currentContext: input.currentContext,
@@ -170,12 +179,13 @@ async function runDeliberation(input: {
         text: formatContributionForDeliberation(c),
       })),
     ),
+    afterCompact: expandNote,
   });
   const fits = promptFitsWindow({
     systemPrompt: DELIBERATION_SYSTEM_PROMPT,
     userPrompt,
     contextWindow: input.contextWindow,
-    outputReserve: DELIBERATION_MAX_TOKENS,
+    outputReserve,
   });
   if (!fits) return null;
   throwIfAborted(input.signal);
@@ -186,6 +196,7 @@ async function runDeliberation(input: {
         round: input.round,
         systemPrompt: DELIBERATION_SYSTEM_PROMPT,
         userPrompt,
+        maxTokens: expandNote ? AFTER_COMPACT_NOTE_MAX_TOKENS : undefined,
       },
       input.signal,
     );

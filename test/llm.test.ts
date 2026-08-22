@@ -80,4 +80,23 @@ describe("createCompleteFn", () => {
     await complete({ purpose: "block", blockNumber: 1, systemPrompt: "s", userPrompt: "u" });
     assert.equal(options?.cacheRetention, "none");
   });
+
+  it("honors an explicit maxTokens override", async () => {
+    let options: { maxTokens?: number } | undefined;
+    const complete = createCompleteFn(
+      ctxWith({ role: "assistant", content: [{ type: "text", text: "no" }] }, (opts) => {
+        options = opts as { maxTokens?: number };
+      }),
+      model,
+      "sess",
+    );
+    await complete({
+      purpose: "deliberation",
+      round: 2,
+      systemPrompt: "s",
+      userPrompt: "u",
+      maxTokens: 4096,
+    });
+    assert.equal(options?.maxTokens, 4096);
+  });
 });
