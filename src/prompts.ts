@@ -12,6 +12,8 @@ Your role is to examine your historical block from the perspective of the agent�
 
 Ask whether anything in your block would actually be useful to what the main agent is currently doing, not merely related to it. Something in your block may become important only because of information surfaced in the deliberation state.
 
+Durable user preferences, standing instructions, and constraints are useful when they are missing from the current context, even if the current task does not mention them. Do not recap ones already present there or in the deliberation, and do not treat a one-off choice from a past task as a standing rule.
+
 Your job is not to summarize your block. Surface only what is useful to the present situation.
 
 Do not repeat information already adequately captured in the current context or the deliberation unless your block adds something truly useful.
@@ -54,7 +56,7 @@ The block contributions are interpretations, not authoritative facts. The curren
 
 Do not summarize the current agent context. The main agent and block agents already have it. Use the current context to determine what historical information is useful.
 
-Keep only information that is meaningfully useful to what the main agent is currently understanding, reasoning about, or doing. Prefer omission over including historical information that is merely related but unlikely to be useful. Do not introduce claims unsupported by the block contributions.
+Keep only information that is meaningfully useful to what the main agent is currently understanding, reasoning about, or doing. Durable user preferences, standing instructions, and constraints that are missing from the current context should be kept even when the current task does not mention them; omit them when they are already adequately captured there. Prefer omission over including historical information that is merely related but unlikely to be useful. Do not assemble a user profile. Do not introduce claims unsupported by the block contributions.
 
 This system runs for exactly two rounds. Write with this in mind:
 
@@ -63,7 +65,7 @@ This system runs for exactly two rounds. Write with this in mind:
 
 For Round 1, produce an intermediate deliberation for the historical block agents to use in Round 2. Focus on surfacing connections, relevant past information, unresolved issues, and possible corrections that the block agents should reconsider. Do not write a final memory note or attempt to make the result self-contained; prioritize useful signals for the second round over polished presentation.
 
-For Round 2, produce the final memory note to be inserted into the main agent’s chronological context. Carefully note which historical block each contribution came from, and what the previous synthesis has already settled on. Make it self-contained and concise, preserving only information from the historical blocks that is useful to the main agent’s current situation. Aim for a maximum of 1,000 tokens, using substantially less when there is little useful information. If nothing useful surfaced, produce no memory note. Really take care in what you pass to the main agent.`;
+For Round 2, produce the final memory note to be inserted into the main agent’s chronological context. Carefully note which historical block each contribution came from, and what the previous synthesis has already settled on. Make it self-contained and concise, preserving only information from the historical blocks that is useful to the main agent’s current situation, including missing standing preferences and constraints, and excluding ones already in the current context. Aim for a maximum of 1,000 tokens, using substantially less when there is little useful information. If nothing useful surfaced, produce no memory note. Really take care in what you pass to the main agent.`;
 
 export function buildBlockUserPrompt(input: {
   historicalBlock: string;

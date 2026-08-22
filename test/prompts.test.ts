@@ -19,6 +19,11 @@ describe("prompts", () => {
       ),
     );
     assert.ok(BLOCK_SYSTEM_PROMPT.includes("very concise, idea-centered explanation"));
+    assert.ok(
+      BLOCK_SYSTEM_PROMPT.includes(
+        "Durable user preferences, standing instructions, and constraints are useful when they are missing from the current context",
+      ),
+    );
   });
 
   it("puts block number after the XML bodies so cache prefixes stay stable", () => {
@@ -43,6 +48,11 @@ describe("prompts", () => {
     assert.ok(
       DELIBERATION_SYSTEM_PROMPT.includes(
         "Carefully note which historical block each contribution came from, and what the previous synthesis has already settled on.",
+      ),
+    );
+    assert.ok(
+      DELIBERATION_SYSTEM_PROMPT.includes(
+        "including missing standing preferences and constraints, and excluding ones already in the current context",
       ),
     );
   });
