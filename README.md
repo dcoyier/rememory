@@ -14,7 +14,7 @@ Pi extension: when context is compacted, the departing window is frozen intact a
 | 1 | One block-agent call. `yes` text becomes the note. No deliberation. |
 | 2+ | Round 1 all blocks in parallel → if all `no`, stop → else D1 → Round 2 all blocks in parallel (including those that said `no`) → final note |
 
-Once blocks exist, `before_agent_start` appends a short instruction to Pi’s main-agent system prompt: ask memory a specific question with `echo "Memory: <question>"`. That tool result is visible to the next memory pass.
+Each turn, `before_agent_start` appends a short instruction to Pi’s main-agent system prompt: ask memory a specific question with `echo "Memory: <question>"`. That tool result is visible to the next memory pass.
 
 Notes are spliced into this call’s `context` snapshot so the model sees them on this request. `sendMessage({ triggerTurn: false })` writes the note into the session once per body (not on every tool-loop call). They are never stripped, never steering, and they freeze later as part of whatever span compact takes. The everyday note target is 1,000 tokens; the first recall after a successful compact may go substantially longer (hard cap 4,096).
 

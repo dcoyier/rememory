@@ -333,22 +333,13 @@ describe("extension wiring", () => {
     }
   });
 
-  it("appends the Memory echo convention to the main-agent system prompt once blocks exist", async () => {
+  it("appends the Memory echo convention to the main-agent system prompt", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hm-ext-"));
     try {
       const { pi, handlers } = fakePi();
       historicalMemory(pi);
       const c = ctx({ sessionDir: dir, sessionId: "s7" });
       await handlers.get("session_start")?.[0]?.({}, c);
-      const empty = await handlers.get("before_agent_start")?.[0]?.({ systemPrompt: "base" }, c);
-      assert.equal(empty, undefined);
-
-      await handlers.get("session_before_compact")?.[0]?.(
-        { reason: "manual", preparation: { messagesToSummarize: [{ role: "user", content: "old" }] } },
-        c,
-      );
-      await handlers.get("session_compact")?.[0]?.({}, c);
-
       const appended = (await handlers.get("before_agent_start")?.[0]?.({ systemPrompt: "base" }, c)) as
         | { systemPrompt: string }
         | undefined;

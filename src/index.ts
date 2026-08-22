@@ -63,11 +63,8 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
   pi.on("session_start", (_event, ctx) => bindSession(ctx, state));
   pi.on("session_shutdown", () => invalidateSession(state));
 
-  pi.on("before_agent_start", (event, ctx) => {
+  pi.on("before_agent_start", (event) => {
     if (!state.enabled) return;
-    const store = state.store ?? openStore(ctx);
-    state.store = store;
-    if (store.blockCount === 0) return;
     const base = typeof event.systemPrompt === "string" ? event.systemPrompt : "";
     if (base.includes(MAIN_AGENT_SYSTEM_APPEND)) return;
     return { systemPrompt: base ? `${base}\n\n${MAIN_AGENT_SYSTEM_APPEND}` : MAIN_AGENT_SYSTEM_APPEND };
