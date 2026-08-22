@@ -86,6 +86,24 @@ describe("createCompleteFn", () => {
     );
   });
 
+  it("enables reasoning on nested completes when the model requires it", async () => {
+    const reasoningModel: PiModel = { ...model, reasoning: true };
+    let options: { reasoning?: string } | undefined;
+    const complete = createCompleteFn(
+      {
+        ...ctxWith({ role: "assistant", content: [{ type: "text", text: "no" }] }, (opts) => {
+          options = opts as { reasoning?: string };
+        }),
+        thinkingLevel: "low",
+        model: reasoningModel,
+      },
+      reasoningModel,
+      "sess",
+    );
+    await complete({ purpose: "block", blockNumber: 1, systemPrompt: "s", userPrompt: "u" });
+    assert.equal(options?.reasoning, "low");
+  });
+
   it("disables prompt cache retention on nested completes", async () => {
     let options: { cacheRetention?: string } | undefined;
     const complete = createCompleteFn(

@@ -15,6 +15,7 @@ export type PiModel = {
   provider: string;
   contextWindow?: number;
   maxTokens?: number;
+  reasoning?: boolean;
 };
 
 export type PiUsage = {
@@ -42,6 +43,7 @@ export interface PiModelRegistry {
       signal?: AbortSignal;
       sessionId?: string;
       cacheRetention?: string;
+      reasoning?: string;
     },
   ): Promise<PiAssistantMessage>;
 }
@@ -59,6 +61,7 @@ export interface PiExtensionContext {
   modelRegistry: PiModelRegistry;
   sessionManager: PiSessionManager;
   signal?: AbortSignal;
+  thinkingLevel?: string;
   cwd: string;
   ui: {
     setStatus?: (key: string, text: string | undefined) => void;

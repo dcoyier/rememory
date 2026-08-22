@@ -36,6 +36,13 @@ export function createCompleteFn(
         signal,
         sessionId: routingId,
         cacheRetention: "none",
+        // Ox-alpha and similar endpoints reject requests that disable reasoning.
+        ...(model.reasoning
+          ? {
+              reasoning:
+                ctx.thinkingLevel && ctx.thinkingLevel !== "off" ? ctx.thinkingLevel : "low",
+            }
+          : {}),
       },
     );
 

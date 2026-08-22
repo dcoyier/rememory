@@ -17,6 +17,17 @@ import {
   formatBlockContributions,
 } from "./prompts.ts";
 import type { FrozenBlock } from "./store.ts";
+import { appendFileSync } from "node:fs";
+
+function debugRecall(event: string, data: Record<string, unknown>): void {
+  const path = process.env.HISTORICAL_MEMORY_DEBUG;
+  if (!path) return;
+  try {
+    appendFileSync(path, `${JSON.stringify({ t: new Date().toISOString(), event, ...data })}\n`);
+  } catch {
+    // ignore
+  }
+}
 
 export interface LlmCall {
   purpose: "block" | "deliberation";
@@ -84,8 +95,10 @@ export async function runRecall(input: {
     });
     if (!fits) {
       skippedBlocks.push(block.n);
+      debugRecall("block-skip-fit", { blockNumber: block.n, contextWindow });
       return { kind: "no", blockNumber: block.n };
     }
+    debugRecall("block-call", { blockNumber: block.n, promptChars: userPrompt.length, contextWindow });
     throwIfAborted(signal);
     try {
       const raw = await complete(
@@ -102,9 +115,14 @@ export async function runRecall(input: {
         signal,
       );
       throwIfAborted(signal);
+      debugRecall("block-raw", { blockNumber: block.n, raw: raw.slice(0, 300) });
       return parseBlockOutput(raw, block.n);
     } catch (error) {
       if (isAbort(error)) throw error;
+      debugRecall("block-error", {
+        blockNumber: block.n,
+        error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      });
       return { kind: "no", blockNumber: block.n };
     }
   };
