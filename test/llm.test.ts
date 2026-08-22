@@ -24,6 +24,24 @@ function ctxWith(
 }
 
 describe("createCompleteFn", () => {
+  it("falls back to thinking text when there is no visible text", async () => {
+    const complete = createCompleteFn(
+      ctxWith({
+        role: "assistant",
+        content: [{ type: "thinking", thinking: "yes\nUse the vault path." }],
+      }),
+      model,
+      "sess",
+    );
+    const text = await complete({
+      purpose: "block",
+      blockNumber: 1,
+      systemPrompt: "s",
+      userPrompt: "u",
+    });
+    assert.equal(text, "yes\nUse the vault path.");
+  });
+
   it("extracts assistant text", async () => {
     const complete = createCompleteFn(
       ctxWith({ role: "assistant", content: [{ type: "text", text: "yes\nHello" }] }),

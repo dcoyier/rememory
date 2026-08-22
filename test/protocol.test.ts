@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { LlmCall } from "../src/protocol.ts";
 import { runRecall } from "../src/protocol.ts";
+import { AFTER_COMPACT_NOTE_MAX_TOKENS } from "../src/constants.ts";
 import type { FrozenBlock } from "../src/store.ts";
 
 function block(n: number, text: string): FrozenBlock {
@@ -186,7 +187,7 @@ describe("runRecall", () => {
       afterCompact: true,
     });
     const d2 = calls.find((c) => c.purpose === "deliberation" && c.round === 2);
-    assert.equal(d2?.maxTokens, 4096);
+    assert.equal(d2?.maxTokens, AFTER_COMPACT_NOTE_MAX_TOKENS);
     assert.ok(d2?.userPrompt.includes("<AFTER_COMPACTION>"));
     const d1 = calls.find((c) => c.purpose === "deliberation" && c.round === 1);
     assert.equal(d1?.maxTokens, undefined);

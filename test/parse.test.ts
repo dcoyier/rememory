@@ -33,6 +33,14 @@ describe("parseBlockOutput", () => {
   it("defaults unknown text to no", () => {
     assert.equal(parseBlockOutput("here is a summary of the block", 1).kind, "no");
   });
+
+  it("ignores leading blank lines and a trailing period on yes", () => {
+    const got = parseBlockOutput("\n\nYes.\nThe API key lives in the vault.", 1);
+    assert.equal(got.kind, "yes");
+    if (got.kind === "yes") {
+      assert.equal(got.text, "The API key lives in the vault.");
+    }
+  });
 });
 
 describe("parseDeliberationNote", () => {

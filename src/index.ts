@@ -11,6 +11,17 @@ import { inheritFromParent, openStore } from "./session.ts";
 import type { BlockStore } from "./store.ts";
 import type { PiExtensionAPI, PiExtensionContext } from "./pi-types.ts";
 import { sessionIdOf } from "./pi-types.ts";
+import { appendFileSync } from "node:fs";
+
+function debugLog(event: string, data: Record<string, unknown>): void {
+  const path = process.env.HISTORICAL_MEMORY_DEBUG;
+  if (!path) return;
+  try {
+    appendFileSync(path, `${JSON.stringify({ t: new Date().toISOString(), event, ...data })}\n`);
+  } catch {
+    // Debug logging must never break recall.
+  }
+}
 
 interface RuntimeState {
   enabled: boolean;
@@ -115,12 +126,18 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
       protocolRunning: state.protocolRunning,
       hasModel: Boolean(ctx.model),
     });
-    if (skip) return;
+    if (skip) {
+      debugLog("context-skip-reason", { skip });
+      return;
+    }
 
     const store = state.store ?? openStore(ctx);
     state.store = store;
     const blocks = store.loadAll();
-    if (blocks.length === 0 || !ctx.model) return;
+    if (blocks.length === 0 || !ctx.model) {
+      debugLog("context-skip", { blocks: blocks.length, hasModel: Boolean(ctx.model) });
+      return;
+    }
 
     const generation = state.recallGeneration;
     const afterCompact = state.freshCompact;
@@ -128,6 +145,7 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
     state.protocolRunning = true;
     try {
       const messages = (event.messages ?? []) as SerializedMessage[];
+      debugLog("recall-start", { blocks: blocks.length, afterCompact, generation });
       const result = await runRecall({
         blocks,
         currentContext: serializeMessages(messages),
@@ -141,6 +159,7 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
           }
         },
       });
+      debugLog("recall-done", { note: Boolean(result.note), plan: result.plan, skipped: result.skippedBlocks });
       if (!result.note) return;
       return persistNote(pi, event, result.note, {
         stillCurrent: () => state.recallGeneration === generation,

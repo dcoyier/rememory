@@ -89,9 +89,15 @@ export interface PiExtensionAPI {
 
 export function extractAssistantText(message: PiAssistantMessage | undefined): string {
   if (!message?.content) return "";
-  return message.content
+  const texts = message.content
     .filter((b) => b.type === "text" && typeof b.text === "string")
-    .map((b) => b.text as string)
+    .map((b) => b.text as string);
+  const joined = texts.join("\n").trim();
+  if (joined) return joined;
+  // Reasoning models sometimes emit only thinking when the token budget is tight.
+  return message.content
+    .filter((b) => b.type === "thinking" && typeof b.thinking === "string")
+    .map((b) => b.thinking as string)
     .join("\n")
     .trim();
 }

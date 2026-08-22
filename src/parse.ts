@@ -9,7 +9,8 @@ export function parseBlockOutput(raw: string, blockNumber: number): BlockContrib
   if (!trimmed) return { kind: "no", blockNumber };
 
   const lines = trimmed.split(/\r?\n/);
-  const first = (lines[0] ?? "").trim().toLowerCase();
+  while (lines.length > 0 && !lines[0]?.trim()) lines.shift();
+  const first = (lines[0] ?? "").trim().toLowerCase().replace(/[.!]+$/, "");
 
   if (first === "no") return { kind: "no", blockNumber };
 
