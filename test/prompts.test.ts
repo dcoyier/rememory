@@ -25,7 +25,7 @@ describe("prompts", () => {
         "Durable user preferences, standing instructions, and constraints are useful when they are missing from the current context",
       ),
     );
-    assert.ok(BLOCK_SYSTEM_PROMPT.includes("text starts with Memory:"));
+    assert.ok(BLOCK_SYSTEM_PROMPT.includes('echo "Memory: <question>"'));
   });
 
   it("puts block number after the XML bodies so cache prefixes stay stable", () => {
@@ -63,7 +63,7 @@ describe("prompts", () => {
         "including missing standing preferences and constraints, and excluding ones already in the current context",
       ),
     );
-    assert.ok(DELIBERATION_SYSTEM_PROMPT.includes("Memory: question from the main agent"));
+    assert.ok(DELIBERATION_SYSTEM_PROMPT.includes('echo "Memory: <question>"'));
     assert.ok(MAIN_AGENT_SYSTEM_APPEND.includes('echo "Memory: <question>"'));
   });
 });

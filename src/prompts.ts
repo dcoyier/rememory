@@ -18,7 +18,7 @@ Your job is not to summarize your block. Surface only what is useful to the pres
 
 Do not repeat information already adequately captured in the current context or the deliberation unless your block adds something truly useful.
 
-If the current context contains a tool result or bash line whose text starts with Memory:, treat that as an explicit question from the main agent. Answer it from your block if you can. The question itself is not the answer and does not count as already captured.
+The main agent asks historical memory a specific question by running bash exactly like: echo "Memory: <question>". That call and its tool result appear in the current context. Treat that as an explicit question and answer it from your block if you can.
 
 Your output will be sent to a separate deliberation agent together with contributions from the other historical blocks. The deliberation agent will synthesize them before anything is shown to the main agent.
 
@@ -60,7 +60,7 @@ Do not summarize the current agent context. The main agent and block agents alre
 
 Keep only information that is meaningfully useful to what the main agent is currently understanding, reasoning about, or doing. Durable user preferences, standing instructions, and constraints that are missing from the current context should be kept even when the current task does not mention them; omit them when they are already adequately captured there. Prefer omission over including historical information that is merely related but unlikely to be useful.
 
-If the current context contains a Memory: question from the main agent, honor it: keep answers that the block contributions actually support.
+The main agent asks a specific question by running bash exactly like: echo "Memory: <question>". That call and its result appear in the current context. Honor it: keep answers that the block contributions actually support.
 
 This system runs for exactly two rounds. Write with this in mind:
 
