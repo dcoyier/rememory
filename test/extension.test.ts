@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import historicalMemory from "../src/index.ts";
 import { CUSTOM_TYPE } from "../src/constants.ts";
+import { MAIN_AGENT_SYSTEM_APPEND } from "../src/prompts.ts";
 import type { PiAssistantMessage, PiExtensionAPI, PiExtensionContext } from "../src/pi-types.ts";
 
 type Handler = (event: unknown, ctx: PiExtensionContext) => unknown;
@@ -327,6 +328,32 @@ describe("extension wiring", () => {
       assert.ok(completeCalls >= 1);
       commands.get("memory")?.("", c);
       assert.ok(notifies.some((n) => n.includes("on") && n.includes("1 blocks")));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("appends the Memory echo convention to the main-agent system prompt once blocks exist", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hm-ext-"));
+    try {
+      const { pi, handlers } = fakePi();
+      historicalMemory(pi);
+      const c = ctx({ sessionDir: dir, sessionId: "s7" });
+      await handlers.get("session_start")?.[0]?.({}, c);
+      const empty = await handlers.get("before_agent_start")?.[0]?.({ systemPrompt: "base" }, c);
+      assert.equal(empty, undefined);
+
+      await handlers.get("session_before_compact")?.[0]?.(
+        { reason: "manual", preparation: { messagesToSummarize: [{ role: "user", content: "old" }] } },
+        c,
+      );
+      await handlers.get("session_compact")?.[0]?.({}, c);
+
+      const appended = (await handlers.get("before_agent_start")?.[0]?.({ systemPrompt: "base" }, c)) as
+        | { systemPrompt: string }
+        | undefined;
+      assert.ok(appended?.systemPrompt.startsWith("base"));
+      assert.ok(appended?.systemPrompt.includes(MAIN_AGENT_SYSTEM_APPEND));
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

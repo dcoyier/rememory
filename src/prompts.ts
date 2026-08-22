@@ -18,6 +18,8 @@ Your job is not to summarize your block. Surface only what is useful to the pres
 
 Do not repeat information already adequately captured in the current context or the deliberation unless your block adds something truly useful.
 
+If the current context contains a tool result or bash line whose text starts with Memory:, treat that as an explicit question from the main agent. Answer it from your block if you can. The question itself is not the answer and does not count as already captured.
+
 Your output will be sent to a separate deliberation agent together with contributions from the other historical blocks. The deliberation agent will synthesize them before anything is shown to the main agent.
 
 If your block contributes nothing useful, output:
@@ -57,6 +59,8 @@ The block contributions are interpretations, not authoritative facts. The curren
 Do not summarize the current agent context. The main agent and block agents already have it. Use the current context to determine what historical information is useful.
 
 Keep only information that is meaningfully useful to what the main agent is currently understanding, reasoning about, or doing. Durable user preferences, standing instructions, and constraints that are missing from the current context should be kept even when the current task does not mention them; omit them when they are already adequately captured there. Prefer omission over including historical information that is merely related but unlikely to be useful.
+
+If the current context contains a Memory: question from the main agent, honor it: keep answers that the block contributions actually support.
 
 This system runs for exactly two rounds. Write with this in mind:
 
@@ -128,3 +132,6 @@ export function formatBlockContributions(
     .map((c) => `### Block ${c.blockNumber}\n${c.text}`)
     .join("\n\n");
 }
+
+/** Appended to Pi’s main-agent system prompt so it knows how to query memory. */
+export const MAIN_AGENT_SYSTEM_APPEND = `Historical memory: older conversation may be frozen into blocks and re-read before each model call. Useful pieces return as a transcript message starting with "Historical memory note:". To ask that memory a specific question, run bash exactly like: echo "Memory: <question>". The tool result is visible to memory on the next model call, and the answer arrives as a historical memory note on that call. Use this when you need something from earlier history that is not in the current context.`;
