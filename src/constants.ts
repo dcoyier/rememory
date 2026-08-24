@@ -10,8 +10,6 @@ export const DELIBERATION_MAX_TOKENS = 8192;
 /** Ceiling for a note on the first recall after a successful compact. */
 export const AFTER_COMPACT_NOTE_MAX_TOKENS = 16384;
 export const TOKEN_CHAR_RATIO = 4;
-/** Leave room for the completion when checking whether a prompt fits. */
-export const FIT_OUTPUT_RESERVE = 8192;
 
 export const EMPTY_DELIBERATION_SENTINELS = [
   "",

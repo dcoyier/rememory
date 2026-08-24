@@ -151,7 +151,6 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
         currentContext: serializeMessages(messages),
         complete: createCompleteFn(ctx, ctx.model, sessionIdOf(ctx)),
         signal: ctx.signal,
-        contextWindow: ctx.model.contextWindow,
         afterCompact,
         onStatus: (text) => {
           if (state.recallGeneration === generation) {
@@ -159,7 +158,7 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
           }
         },
       });
-      debugLog("recall-done", { note: Boolean(result.note), plan: result.plan, skipped: result.skippedBlocks });
+      debugLog("recall-done", { note: Boolean(result.note), plan: result.plan });
       if (!result.note) return;
       return persistNote(pi, event, result.note, {
         stillCurrent: () => state.recallGeneration === generation,
