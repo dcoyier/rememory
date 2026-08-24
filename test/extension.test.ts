@@ -10,6 +10,17 @@ import type { PiAssistantMessage, PiExtensionAPI, PiExtensionContext } from "../
 
 type Handler = (event: unknown, ctx: PiExtensionContext) => unknown;
 
+function completeWithNote(text = "Use staging.") {
+  return async (
+    _model: unknown,
+    context?: { systemPrompt?: string },
+  ): Promise<PiAssistantMessage> => {
+    const system = typeof context?.systemPrompt === "string" ? context.systemPrompt : "";
+    const body = system.includes("You are the deliberation agent") ? text : `yes\n${text}`;
+    return { role: "assistant", content: [{ type: "text", text: body }] };
+  };
+}
+
 function fakePi() {
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, (args: string, ctx: PiExtensionContext) => unknown>();
@@ -139,12 +150,7 @@ describe("extension wiring", () => {
         sessionDir: dir,
         sessionId: "s3",
         modelRegistry: {
-          async complete() {
-            return {
-              role: "assistant",
-              content: [{ type: "text", text: "yes\nUse staging." }],
-            };
-          },
+          complete: completeWithNote(),
         },
       });
       await handlers.get("session_start")?.[0]?.({}, c);
@@ -192,9 +198,7 @@ describe("extension wiring", () => {
         sessionDir: dir,
         sessionId: "s4",
         modelRegistry: {
-          async complete() {
-            return { role: "assistant", content: [{ type: "text", text: "yes\nUse staging." }] };
-          },
+          complete: completeWithNote(),
         },
       });
       await handlers.get("session_start")?.[0]?.({}, c);
@@ -306,10 +310,10 @@ describe("extension wiring", () => {
         sessionDir: dirA,
         sessionId: "sA",
         modelRegistry: {
-          async complete() {
+          async complete(_model, context) {
             enteredComplete = true;
             await gate;
-            return { role: "assistant", content: [{ type: "text", text: "yes\nUse staging." }] };
+            return completeWithNote()(_model, context);
           },
         },
       });
