@@ -229,6 +229,34 @@ describe("createCompleteFn", () => {
     );
   });
 
+  it("rejects Codex auth that is ok but has no token", async () => {
+    const reasoningModel: PiModel = { ...model, provider: "openai-codex", reasoning: true };
+    const complete = createCompleteFn(
+      {
+        cwd: "/tmp",
+        model: reasoningModel,
+        modelRegistry: {
+          async getApiKeyAndHeaders() {
+            return { ok: true as const };
+          },
+        },
+        sessionManager: {},
+        ui: {},
+      },
+      reasoningModel,
+      "sess",
+      {
+        async completeSimple() {
+          throw new Error("completeSimple should not run without a token");
+        },
+      },
+    );
+    await assert.rejects(
+      () => complete({ purpose: "block", blockNumber: 1, systemPrompt: "s", userPrompt: "u" }),
+      /no API key for "openai-codex"/,
+    );
+  });
+
   it("does not send reasoning options for non-reasoning models", async () => {
     let options: { reasoning?: string; reasoningEffort?: string } | undefined;
     const complete = createCompleteFn(

@@ -95,6 +95,11 @@ async function runNestedComplete(
   if (!auth || auth.ok === false) {
     throw new Error(auth?.error || "historical-memory: no credentials for nested memory call");
   }
+  if (!auth.apiKey) {
+    throw new Error(
+      `historical-memory: no API key for "${model.provider}". For Codex, run /login openai-codex.`,
+    );
+  }
 
   const completeSimple = extras?.completeSimple ?? (await importCompleteSimple());
   return completeSimple(model, context, {

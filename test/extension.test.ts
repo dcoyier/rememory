@@ -169,7 +169,7 @@ describe("extension wiring", () => {
       };
       assert.equal(payload.message.customType, CUSTOM_TYPE);
       assert.equal(payload.options.triggerTurn, false);
-      assert.equal(payload.options.deliverAs, undefined);
+      assert.equal(payload.options.deliverAs, "nextTurn");
       assert.equal(result?.messages.at(-1)?.customType, CUSTOM_TYPE);
 
       const again = (await handlers.get("context")?.[0]?.(
@@ -244,6 +244,48 @@ describe("extension wiring", () => {
       commands.get("memory")?.("", c);
       assert.ok(notifies.some((n) => n.includes("1 blocks")));
       assert.equal(entries.length, 1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("unblocks recall after a failed compact because Pi has no session_compact_failed", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hm-ext-"));
+    try {
+      let completeCalls = 0;
+      const { pi, handlers } = fakePi();
+      historicalMemory(pi);
+      const c = ctx({
+        sessionDir: dir,
+        sessionId: "s5b",
+        modelRegistry: {
+          async complete() {
+            completeCalls += 1;
+            return { role: "assistant", content: [{ type: "text", text: "no" }] };
+          },
+        },
+      });
+      await handlers.get("session_start")?.[0]?.({}, c);
+      await handlers.get("session_before_compact")?.[0]?.(
+        { reason: "threshold", preparation: { messagesToSummarize: [{ role: "user", content: "old" }] } },
+        c,
+      );
+      await handlers.get("session_compact")?.[0]?.({}, c);
+      completeCalls = 0;
+      await handlers.get("session_before_compact")?.[0]?.(
+        { reason: "threshold", preparation: { messagesToSummarize: [{ role: "user", content: "newer" }] } },
+        c,
+      );
+      const skippedWhileCompacting = await handlers.get("context")?.[0]?.(
+        { messages: [{ role: "user", content: "now" }] },
+        c,
+      );
+      assert.equal(skippedWhileCompacting, undefined);
+      assert.equal(completeCalls, 0);
+
+      await handlers.get("before_agent_start")?.[0]?.({ systemPrompt: "base" }, c);
+      await handlers.get("context")?.[0]?.({ messages: [{ role: "user", content: "now" }] }, c);
+      assert.ok(completeCalls >= 1);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
