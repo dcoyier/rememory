@@ -203,6 +203,7 @@ describe("createCompleteFn", () => {
 
   it("surfaces Codex auth failures from getApiKeyAndHeaders", async () => {
     const reasoningModel: PiModel = { ...model, provider: "openai-codex", reasoning: true };
+    const notices: string[] = [];
     const complete = createCompleteFn(
       {
         cwd: "/tmp",
@@ -213,7 +214,11 @@ describe("createCompleteFn", () => {
           },
         },
         sessionManager: {},
-        ui: {},
+        ui: {
+          notify(text) {
+            notices.push(text);
+          },
+        },
       },
       reasoningModel,
       "sess",
@@ -227,6 +232,12 @@ describe("createCompleteFn", () => {
       () => complete({ purpose: "block", blockNumber: 1, systemPrompt: "s", userPrompt: "u" }),
       /No API key found for "openai-codex"/,
     );
+    await assert.rejects(
+      () => complete({ purpose: "block", blockNumber: 2, systemPrompt: "s", userPrompt: "u" }),
+      /No API key found for "openai-codex"/,
+    );
+    assert.equal(notices.length, 1);
+    assert.match(notices[0] ?? "", /No API key found for "openai-codex"/);
   });
 
   it("rejects Codex auth that is ok but has no token", async () => {

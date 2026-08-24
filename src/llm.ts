@@ -1,4 +1,5 @@
 import { BLOCK_MAX_TOKENS, DELIBERATION_MAX_TOKENS } from "./constants.ts";
+import { isAbort, messageOf } from "./errors.ts";
 import type { CompleteFn, LlmCall } from "./protocol.ts";
 import {
   extractAssistantText,
@@ -15,7 +16,7 @@ export interface CompleteFnExtras {
   completeSimple?: NestedCompleteFn;
 }
 
-const PI_AI_SPECIFIERS = ["@mariozechner/pi-ai", "@earendil-works/pi-ai"] as const;
+const SETUP_ERROR = "HistoricalMemorySetupError";
 
 export function createCompleteFn(
   ctx: PiExtensionContext,
@@ -23,6 +24,7 @@ export function createCompleteFn(
   sessionId: string,
   extras?: CompleteFnExtras,
 ): CompleteFn {
+  let setupErrorNotified = false;
   return async (call: LlmCall, signal?: AbortSignal) => {
     const maxTokens =
       call.maxTokens ?? (call.purpose === "block" ? BLOCK_MAX_TOKENS : DELIBERATION_MAX_TOKENS);
@@ -39,26 +41,39 @@ export function createCompleteFn(
       ...reasoningOptions(model, extras?.getThinkingLevel?.() ?? ctx.thinkingLevel),
     };
 
-    const response = await runNestedComplete(ctx, model, extras, {
-      systemPrompt: call.systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: [{ type: "text", text: call.userPrompt }],
-          timestamp: Date.now(),
-        },
-      ],
-    }, options);
+    try {
+      const response = await runNestedComplete(ctx, model, extras, {
+        systemPrompt: call.systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: [{ type: "text", text: call.userPrompt }],
+            timestamp: Date.now(),
+          },
+        ],
+      }, options);
 
-    if (response.stopReason === "aborted") {
-      const err = new Error("aborted");
-      err.name = "AbortError";
-      throw err;
+      if (response.stopReason === "aborted") {
+        const err = new Error("aborted");
+        err.name = "AbortError";
+        throw err;
+      }
+      if (response.stopReason === "error") {
+        throw new Error(response.errorMessage || "memory model call failed");
+      }
+      return extractAssistantText(response);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === SETUP_ERROR &&
+        !setupErrorNotified &&
+        !isAbort(error)
+      ) {
+        setupErrorNotified = true;
+        ctx.ui.notify?.(`Historical memory: ${messageOf(error)}`, "error");
+      }
+      throw error;
     }
-    if (response.stopReason === "error") {
-      throw new Error(response.errorMessage || "memory model call failed");
-    }
-    return extractAssistantText(response);
   };
 }
 
@@ -89,16 +104,14 @@ async function runNestedComplete(
 
   const authFn = ctx.modelRegistry.getApiKeyAndHeaders;
   if (typeof authFn !== "function") {
-    throw new Error("historical-memory: model registry cannot complete nested calls");
+    throw setupError("model registry cannot complete nested calls");
   }
   const auth = await authFn(model);
   if (!auth || auth.ok === false) {
-    throw new Error(auth?.error || "historical-memory: no credentials for nested memory call");
+    throw setupError(auth?.error || "no credentials for nested memory call");
   }
   if (!auth.apiKey) {
-    throw new Error(
-      `historical-memory: no API key for "${model.provider}". For Codex, run /login openai-codex.`,
-    );
+    throw setupError(`no API key for "${model.provider}". For Codex, run /login openai-codex.`);
   }
 
   const completeSimple = extras?.completeSimple ?? (await importCompleteSimple());
@@ -109,19 +122,31 @@ async function runNestedComplete(
   });
 }
 
+/**
+ * Specifiers must stay string literals so Pi's jiti aliases / virtualModules
+ * rewrite them. `import(variable)` bypasses that and resolves from the
+ * extension directory, where @mariozechner/pi-ai is not installed.
+ */
 async function importCompleteSimple(): Promise<NestedCompleteFn> {
-  const errors: string[] = [];
-  for (const name of PI_AI_SPECIFIERS) {
-    const specifier: string = name;
-    try {
-      const mod = (await import(specifier)) as { completeSimple?: NestedCompleteFn };
-      if (typeof mod.completeSimple === "function") return mod.completeSimple;
-      errors.push(`${specifier} has no completeSimple`);
-    } catch (error) {
-      errors.push(`${specifier}: ${error instanceof Error ? error.message : String(error)}`);
-    }
+  try {
+    const mod = await import("@mariozechner/pi-ai");
+    if (typeof mod.completeSimple === "function") return mod.completeSimple as NestedCompleteFn;
+  } catch {
+    // Fall through to the renamed package.
   }
-  throw new Error(
-    `historical-memory: completeSimple is unavailable (${errors.join("; ")}). Nested memory calls need Pi's LLM complete helper so Codex OAuth and other provider auth resolve.`,
+  try {
+    const mod = await import("@earendil-works/pi-ai");
+    if (typeof mod.completeSimple === "function") return mod.completeSimple as NestedCompleteFn;
+  } catch {
+    // Neither copy resolved.
+  }
+  throw setupError(
+    "completeSimple is unavailable. Nested memory calls need Pi's @mariozechner/pi-ai so Codex OAuth and other provider auth resolve.",
   );
+}
+
+function setupError(message: string): Error {
+  const err = new Error(message);
+  err.name = SETUP_ERROR;
+  return err;
 }
