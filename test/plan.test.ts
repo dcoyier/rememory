@@ -7,11 +7,8 @@ describe("recallPlan", () => {
     assert.equal(recallPlan(0), "none");
   });
 
-  it("uses a single block call with no deliberation", () => {
-    assert.equal(recallPlan(1), "single");
-  });
-
-  it("uses the full two-round protocol with two or more blocks", () => {
+  it("uses the full two-round protocol for one or more blocks", () => {
+    assert.equal(recallPlan(1), "full");
     assert.equal(recallPlan(2), "full");
     assert.equal(recallPlan(8), "full");
   });

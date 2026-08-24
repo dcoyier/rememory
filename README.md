@@ -11,8 +11,7 @@ Pi extension: when context is compacted, the departing window is frozen intact a
 | Blocks | What runs |
 | --- | --- |
 | 0 | Nothing |
-| 1 | One block-agent call. `yes` text becomes the note. No deliberation. |
-| 2+ | Round 1 all blocks in parallel → if all `no`, stop → else D1 → Round 2 all blocks in parallel (including those that said `no`) → final note |
+| 1+ | Round 1 all blocks in parallel → if all `no`, stop → else D1 → Round 2 all blocks in parallel (including those that said `no`) → D2 final note |
 
 Each turn, `before_agent_start` appends a short instruction to Pi’s main-agent system prompt: ask memory a specific question with `echo "Memory: <question>"`. That tool result is visible to the next memory pass.
 

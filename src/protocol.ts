@@ -92,8 +92,6 @@ export async function runRecall(input: {
           round,
           systemPrompt: BLOCK_SYSTEM_PROMPT,
           userPrompt,
-          maxTokens:
-            afterCompact && plan === "single" ? AFTER_COMPACT_NOTE_MAX_TOKENS : undefined,
         },
         signal,
       );
@@ -114,15 +112,6 @@ export async function runRecall(input: {
     onStatus?.(`memory r${round} ${totalBlocks} blocks`);
     return Promise.all(blocks.map((block) => runBlock(block, deliberation, round)));
   };
-
-  if (plan === "single") {
-    const round1 = await runBlocks("", 1);
-    const only = round1[0];
-    if (!only || only.kind === "no") {
-      return { ...empty, round1 };
-    }
-    return { note: only.text, plan, round1, round2: [] };
-  }
 
   const round1 = await runBlocks("", 1);
   if (allBlocksSaidNo(round1)) {

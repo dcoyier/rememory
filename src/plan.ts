@@ -1,10 +1,9 @@
-export type RecallPlan = "none" | "single" | "full";
+export type RecallPlan = "none" | "full";
 
 export type RecallSkipReason = "disabled" | "compacting" | "reentrancy" | "no-model";
 
 export function recallPlan(blockCount: number): RecallPlan {
   if (blockCount <= 0) return "none";
-  if (blockCount === 1) return "single";
   return "full";
 }
 

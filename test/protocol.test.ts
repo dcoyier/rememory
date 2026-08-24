@@ -39,30 +39,40 @@ describe("runRecall", () => {
     assert.equal(calls.length, 0);
   });
 
-  it("runs one block call and uses its yes text as the note", async () => {
+  it("runs the full two-round protocol for a single block and uses D2 as the note", async () => {
     const { calls, complete } = scriptedComplete((call) => {
-      assert.equal(call.purpose, "block");
-      return "yes\nUse the staging database.";
+      if (call.purpose === "block" && call.round === 1) return "yes\nRaw block finding.";
+      if (call.purpose === "deliberation" && call.round === 1) return "Reconsider the database constraint";
+      if (call.purpose === "block" && call.round === 2) {
+        assert.ok(call.userPrompt.includes("Reconsider the database constraint"));
+        return "yes\nStaging db after reconsideration.";
+      }
+      return "Use the staging database.";
     });
     const result = await runRecall({
       blocks: [block(1, "old db talk")],
       currentContext: "debugging prod",
       complete,
     });
-    assert.equal(result.plan, "single");
+    assert.equal(result.plan, "full");
     assert.equal(result.note, "Use the staging database.");
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0]?.purpose, "block");
+    assert.equal(calls.filter((c) => c.purpose === "block" && c.round === 1).length, 1);
+    assert.equal(calls.filter((c) => c.purpose === "block" && c.round === 2).length, 1);
+    assert.equal(calls.filter((c) => c.purpose === "deliberation").length, 2);
   });
 
   it("emits nothing when the only block says no", async () => {
-    const { complete } = scriptedComplete(() => "no");
+    const { calls, complete } = scriptedComplete(() => "no");
     const result = await runRecall({
       blocks: [block(1, "old")],
       currentContext: "now",
       complete,
     });
+    assert.equal(result.plan, "full");
     assert.equal(result.note, null);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.purpose, "block");
+    assert.equal(calls[0]?.round, 1);
   });
 
   it("skips deliberation when every block says no in round 1", async () => {
@@ -165,7 +175,7 @@ describe("runRecall", () => {
     }
   });
 
-  it("treats an unreadable block as no without collapsing to the single-block plan", async () => {
+  it("treats an unreadable block as no without skipping deliberation on the readable one", async () => {
     const { calls, complete } = scriptedComplete((call) => {
       if (call.purpose === "block") return "yes\nFrom the readable block";
       if (call.purpose === "deliberation" && call.round === 1) return "readable block had a signal";
@@ -183,14 +193,14 @@ describe("runRecall", () => {
     assert.ok(calls.some((c) => c.purpose === "deliberation"));
   });
 
-  it("raises the final-note token ceiling after compact", async () => {
+  it("raises the final-note token ceiling after compact, including for a single block", async () => {
     const { calls, complete } = scriptedComplete((call) => {
       if (call.purpose === "block") return "yes\nConstraint A";
       if (call.purpose === "deliberation" && call.round === 1) return "A matters";
       return "Constraint A";
     });
     await runRecall({
-      blocks: [block(1, "a"), block(2, "b")],
+      blocks: [block(1, "a")],
       currentContext: "now",
       complete,
       afterCompact: true,
@@ -200,5 +210,6 @@ describe("runRecall", () => {
     assert.ok(d2?.userPrompt.includes("<AFTER_COMPACTION>"));
     const d1 = calls.find((c) => c.purpose === "deliberation" && c.round === 1);
     assert.equal(d1?.maxTokens, undefined);
+    assert.ok(calls.every((c) => c.purpose !== "block" || c.maxTokens === undefined));
   });
 });
