@@ -49,8 +49,8 @@ describe("persistNote", () => {
     const sent: unknown[] = [];
     const persistedBodies = new Set<string>();
     const pi = {
-      sendMessage(message: unknown) {
-        sent.push(message);
+      sendMessage(message: unknown, options?: unknown) {
+        sent.push({ message, options });
       },
     } as PiExtensionAPI;
     const first = persistNote(
@@ -66,6 +66,9 @@ describe("persistNote", () => {
       { persistedBodies },
     );
     assert.equal(sent.length, 1);
+    const payload = sent[0] as { options?: { triggerTurn?: boolean; deliverAs?: string } };
+    assert.equal(payload.options?.triggerTurn, false);
+    assert.equal(payload.options?.deliverAs, "nextTurn");
     assert.equal(first?.messages.at(-1)?.customType, CUSTOM_TYPE);
     assert.equal(second?.messages.at(-1)?.customType, CUSTOM_TYPE);
   });

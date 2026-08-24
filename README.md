@@ -40,7 +40,7 @@ pi -e /path/to/pi-historical-memory/src/index.ts
 
 You can also copy or symlink this folder into `~/.pi/agent/extensions/`. `/memory off` is process-local; it does not persist across Pi restarts.
 
-Requires a Pi that exposes `session_before_compact` (with `preparation.messagesToSummarize`), `session_compact` / `session_compact_failed`, and a `context` hook that can return `{ messages }`. Notes are stored with `sendMessage({ triggerTurn: false })`.
+Requires a Pi that exposes `session_before_compact` (with `preparation.messagesToSummarize`), `session_compact`, and a `context` hook that can return `{ messages }`. Notes are spliced into the current request and persisted with `sendMessage({ triggerTurn: false, deliverAs: "nextTurn" })` so they are not steered mid-turn.
 
 ## Disk layout
 

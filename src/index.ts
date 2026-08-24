@@ -75,6 +75,12 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
   pi.on("session_shutdown", () => invalidateSession(state));
 
   pi.on("before_agent_start", (event) => {
+    // Pi never emits session_compact_failed. A new user turn means compact finished
+    // without session_compact, so drop the in-memory freeze and unblock recall.
+    if (state.compacting) {
+      state.pendingFreeze = null;
+      state.compacting = false;
+    }
     if (!state.enabled) return;
     const base = typeof event.systemPrompt === "string" ? event.systemPrompt : "";
     if (base.includes(MAIN_AGENT_SYSTEM_APPEND)) return;
@@ -149,7 +155,9 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
       const result = await runRecall({
         blocks,
         currentContext: serializeMessages(messages),
-        complete: createCompleteFn(ctx, ctx.model, sessionIdOf(ctx)),
+        complete: createCompleteFn(ctx, ctx.model, sessionIdOf(ctx), {
+          getThinkingLevel: () => pi.getThinkingLevel?.() ?? ctx.thinkingLevel,
+        }),
         signal: ctx.signal,
         afterCompact,
         onStatus: (text) => {

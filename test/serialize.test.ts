@@ -37,6 +37,47 @@ describe("serializeMessages", () => {
     assert.equal(text, "[Assistant]: hello there");
   });
 
+  it("omits encrypted and redacted thinking from frozen prompts", () => {
+    const text = serializeMessages([
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "thinking",
+            thinking: "",
+            thinkingSignature: JSON.stringify({ type: "reasoning", encrypted_content: "cipher" }),
+          },
+          { type: "thinking", thinking: "[Reasoning redacted]", redacted: true },
+          { type: "text", text: "I'll use the staging DB." },
+        ],
+      },
+    ]);
+    assert.equal(text.includes("cipher"), false);
+    assert.equal(text.includes("encrypted_content"), false);
+    assert.equal(text.includes("[Reasoning redacted]"), false);
+    assert.equal(text.includes("[Assistant thinking]"), false);
+    assert.ok(text.includes("[Assistant]: I'll use the staging DB."));
+  });
+
+  it("keeps a readable reasoning summary in frozen prompts", () => {
+    const text = serializeMessages([
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "thinking",
+            thinking: "User prefers the staging database.",
+            thinkingSignature: JSON.stringify({ type: "reasoning", encrypted_content: "cipher" }),
+          },
+          { type: "text", text: "done" },
+        ],
+      },
+    ]);
+    assert.ok(text.includes("[Assistant thinking]: User prefers the staging database."));
+    assert.equal(text.includes("cipher"), false);
+    assert.ok(text.includes("[Assistant]: done"));
+  });
+
   it("labels prior memory notes", () => {
     const text = serializeMessages([
       {

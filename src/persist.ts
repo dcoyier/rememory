@@ -39,6 +39,10 @@ export function persistNote(
   if (!alreadySent) {
     if (options?.stillCurrent && !options.stillCurrent()) return undefined;
     try {
+      // context runs while the agent is streaming. sendMessage without deliverAs
+      // then steers, which can start another model turn. nextTurn writes the note
+      // into the session on the following user prompt; this call sees it via the
+      // returned snapshot splice below.
       pi.sendMessage(
         {
           customType: CUSTOM_TYPE,
@@ -46,7 +50,7 @@ export function persistNote(
           display: true,
           details,
         },
-        { triggerTurn: false },
+        { triggerTurn: false, deliverAs: "nextTurn" },
       );
       options?.persistedBodies?.add(noteBody);
     } catch (error) {
