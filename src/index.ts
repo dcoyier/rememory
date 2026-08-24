@@ -149,7 +149,9 @@ export default function historicalMemory(pi: PiExtensionAPI): void {
       const result = await runRecall({
         blocks,
         currentContext: serializeMessages(messages),
-        complete: createCompleteFn(ctx, ctx.model, sessionIdOf(ctx)),
+        complete: createCompleteFn(ctx, ctx.model, sessionIdOf(ctx), {
+          getThinkingLevel: () => pi.getThinkingLevel?.() ?? ctx.thinkingLevel,
+        }),
         signal: ctx.signal,
         afterCompact,
         onStatus: (text) => {

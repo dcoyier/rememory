@@ -1,4 +1,5 @@
 import { CUSTOM_TYPE, NOTE_PREFIX } from "./constants.ts";
+import { isReadableThinking } from "./thinking.ts";
 
 export type ContentBlock =
   | { type: "text"; text: string }
@@ -39,8 +40,9 @@ function asText(content: unknown): string {
     else if (b.type === "image") {
       const mime = typeof b.mimeType === "string" ? b.mimeType : "unknown";
       parts.push(`[image omitted: ${mime}]`);
-    } else if (b.type === "thinking" && typeof b.thinking === "string") {
-      parts.push(`[thinking] ${b.thinking}`);
+    } else if (isReadableThinking(b)) {
+      const thinking = "thinking" in b ? String(b.thinking) : "";
+      parts.push(`[thinking] ${thinking}`);
     }
   }
   return parts.join("\n");
@@ -85,8 +87,8 @@ export function serializeMessages(messages: SerializedMessage[]): string {
       const toolCalls: string[] = [];
       const texts: string[] = [];
       for (const block of content) {
-        if (block.type === "thinking" && typeof block.thinking === "string") {
-          thinking.push(block.thinking);
+        if (isReadableThinking(block)) {
+          thinking.push("thinking" in block ? String(block.thinking) : "");
         } else if (block.type === "toolCall") {
           toolCalls.push(formatToolCall(block));
         } else if (block.type === "text" && typeof block.text === "string") {

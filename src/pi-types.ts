@@ -1,5 +1,7 @@
 /** Minimal Pi extension surface. Kept local so this package does not need Pi at test time. */
 
+import { isReadableThinking } from "./thinking.ts";
+
 export type PiMessage = {
   role?: string;
   customType?: string;
@@ -13,6 +15,7 @@ export type PiMessage = {
 export type PiModel = {
   id: string;
   provider: string;
+  api?: string;
   contextWindow?: number;
   maxTokens?: number;
   reasoning?: boolean;
@@ -26,27 +29,50 @@ export type PiUsage = {
   totalTokens?: number;
 };
 
+export type PiContentBlock = {
+  type: string;
+  text?: string;
+  thinking?: string;
+  thinkingSignature?: string;
+  redacted?: boolean;
+};
+
 export type PiAssistantMessage = {
   role: "assistant";
-  content: Array<{ type: string; text?: string; thinking?: string }>;
+  content: PiContentBlock[];
   stopReason?: string;
   errorMessage?: string;
   usage?: PiUsage;
 };
 
+export type NestedCompleteOptions = {
+  maxTokens?: number;
+  signal?: AbortSignal;
+  sessionId?: string;
+  cacheRetention?: string;
+  reasoning?: string;
+  reasoningEffort?: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
+};
+
+export type NestedCompleteFn = (
+  model: PiModel,
+  context: { systemPrompt?: string; messages: unknown[] },
+  options?: NestedCompleteOptions,
+) => Promise<PiAssistantMessage>;
+
+export type ResolvedRequestAuth =
+  | { ok: true; apiKey?: string; headers?: Record<string, string> }
+  | { ok: false; error: string };
+
 export interface PiModelRegistry {
-  complete(
-    model: PiModel,
-    context: { systemPrompt?: string; messages: unknown[] },
-    options?: {
-      maxTokens?: number;
-      signal?: AbortSignal;
-      sessionId?: string;
-      cacheRetention?: string;
-      reasoning?: string;
-      reasoningEffort?: string;
-    },
-  ): Promise<PiAssistantMessage>;
+  /**
+   * Test / fake hook. Official Pi ModelRegistry does not have complete();
+   * production nested calls go through getApiKeyAndHeaders + completeSimple.
+   */
+  complete?: NestedCompleteFn;
+  getApiKeyAndHeaders?(model: PiModel): Promise<ResolvedRequestAuth>;
 }
 
 export interface PiSessionManager {
@@ -89,6 +115,8 @@ export interface PiExtensionAPI {
       handler: (args: string, ctx: PiExtensionContext) => unknown;
     },
   ): void;
+  /** Official Pi API. Nested memory calls use this; ctx.thinkingLevel is not set. */
+  getThinkingLevel?: () => string;
 }
 
 export function extractAssistantText(message: PiAssistantMessage | undefined): string {
@@ -98,10 +126,11 @@ export function extractAssistantText(message: PiAssistantMessage | undefined): s
     .map((b) => b.text as string);
   const joined = texts.join("\n").trim();
   if (joined) return joined;
-  // Reasoning models sometimes emit only thinking when the token budget is tight.
+  // Plaintext thinking only. Encrypted/redacted reasoning is not a parseable yes/no note.
   return message.content
-    .filter((b) => b.type === "thinking" && typeof b.thinking === "string")
-    .map((b) => b.thinking as string)
+    .filter((b) => isReadableThinking(b))
+    .map((b) => (b.thinking as string).trim())
+    .filter(Boolean)
     .join("\n")
     .trim();
 }
