@@ -140,20 +140,29 @@ describe("runRecall", () => {
     assert.equal(result.note, "From block 2");
   });
 
-  it("skips a block that cannot fit the model window instead of truncating", async () => {
-    const huge = block(1, "x".repeat(10_000));
-    const { calls, complete } = scriptedComplete(() => {
-      throw new Error("must not call");
+  it("sends a full frozen block even when it would exceed the main agent window", async () => {
+    const hugeText = "x".repeat(10_000);
+    const live = "y".repeat(3_000);
+    const { calls, complete } = scriptedComplete((call) => {
+      if (call.purpose === "block") return call.blockNumber === 1 ? "yes\nFrom the huge block" : "no";
+      if (call.purpose === "deliberation" && call.round === 1) return "huge block matters";
+      return "From the huge block";
     });
     const result = await runRecall({
-      blocks: [huge],
-      currentContext: "now",
+      blocks: [block(1, hugeText), block(2, "other")],
+      currentContext: live,
       complete,
-      contextWindow: 100,
     });
-    assert.equal(result.note, null);
-    assert.deepEqual(result.skippedBlocks, [1]);
-    assert.equal(calls.length, 0);
+    assert.equal(result.note, "From the huge block");
+    const blockCall = calls.find((c) => c.purpose === "block" && c.blockNumber === 1 && c.round === 1);
+    assert.ok(blockCall);
+    assert.ok(blockCall.userPrompt.includes(hugeText));
+    assert.ok(blockCall.userPrompt.includes(live));
+    const deliberations = calls.filter((c) => c.purpose === "deliberation");
+    assert.equal(deliberations.length, 2);
+    for (const d of deliberations) {
+      assert.ok(d.userPrompt.includes(live));
+    }
   });
 
   it("treats an unreadable block as no without collapsing to the single-block plan", async () => {

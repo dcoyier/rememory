@@ -18,7 +18,7 @@ Each turn, `before_agent_start` appends a short instruction to Pi’s main-agent
 
 Notes are spliced into this call’s `context` snapshot so the model sees them on this request. `sendMessage({ triggerTurn: false })` writes the note into the session once per body (not on every tool-loop call). They are never stripped, never steering, and they freeze later as part of whatever span compact takes. The everyday note target is 1,000 tokens; the first recall after a successful compact may go substantially longer (hard cap 4,096).
 
-Block and deliberation calls use the **same model as the main agent**, as bare completions (no tools, no Pi system prompt). If a block + current context cannot fit that model’s window, that block is treated as `no` rather than truncated.
+Block and deliberation calls use the **same model as the main agent**, as bare completions (no tools, no Pi system prompt). Nested calls always send the full frozen block and the full current context; they are not capped to the main agent’s window and blocks are never truncated. A failed nested call is treated as `no` and does not fail the main agent.
 
 ## Install
 

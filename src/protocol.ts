@@ -1,6 +1,5 @@
-import { AFTER_COMPACT_NOTE_MAX_TOKENS, DELIBERATION_MAX_TOKENS, FIT_OUTPUT_RESERVE } from "./constants.ts";
+import { AFTER_COMPACT_NOTE_MAX_TOKENS } from "./constants.ts";
 import { isAbort } from "./errors.ts";
-import { promptFitsWindow } from "./fit.ts";
 import {
   allBlocksSaidNo,
   formatContributionForDeliberation,
@@ -46,7 +45,6 @@ export interface ProtocolResult {
   plan: ReturnType<typeof recallPlan>;
   round1: BlockContribution[];
   round2: BlockContribution[];
-  skippedBlocks: number[];
 }
 
 export async function runRecall(input: {
@@ -54,11 +52,10 @@ export async function runRecall(input: {
   currentContext: string;
   complete: CompleteFn;
   signal?: AbortSignal;
-  contextWindow?: number;
   afterCompact?: boolean;
   onStatus?: (text: string) => void;
 }): Promise<ProtocolResult> {
-  const { blocks, currentContext, complete, signal, contextWindow, afterCompact, onStatus } = input;
+  const { blocks, currentContext, complete, signal, afterCompact, onStatus } = input;
   const totalBlocks = blocks.length;
   const plan = recallPlan(totalBlocks);
   const empty: ProtocolResult = {
@@ -66,11 +63,8 @@ export async function runRecall(input: {
     plan,
     round1: [],
     round2: [],
-    skippedBlocks: [],
   };
   if (plan === "none") return empty;
-
-  const skippedBlocks: number[] = [];
 
   const runBlock = async (
     block: FrozenBlock,
@@ -87,18 +81,7 @@ export async function runRecall(input: {
       blockNumber: block.n,
       totalBlocks,
     });
-    const fits = promptFitsWindow({
-      systemPrompt: BLOCK_SYSTEM_PROMPT,
-      userPrompt,
-      contextWindow,
-      outputReserve: FIT_OUTPUT_RESERVE,
-    });
-    if (!fits) {
-      skippedBlocks.push(block.n);
-      debugRecall("block-skip-fit", { blockNumber: block.n, contextWindow });
-      return { kind: "no", blockNumber: block.n };
-    }
-    debugRecall("block-call", { blockNumber: block.n, promptChars: userPrompt.length, contextWindow });
+    debugRecall("block-call", { blockNumber: block.n, promptChars: userPrompt.length });
     throwIfAborted(signal);
     try {
       const raw = await complete(
@@ -136,14 +119,14 @@ export async function runRecall(input: {
     const round1 = await runBlocks("", 1);
     const only = round1[0];
     if (!only || only.kind === "no") {
-      return { ...empty, round1, skippedBlocks };
+      return { ...empty, round1 };
     }
-    return { note: only.text, plan, round1, round2: [], skippedBlocks };
+    return { note: only.text, plan, round1, round2: [] };
   }
 
   const round1 = await runBlocks("", 1);
   if (allBlocksSaidNo(round1)) {
-    return { ...empty, round1, skippedBlocks };
+    return { ...empty, round1 };
   }
 
   onStatus?.("memory d1");
@@ -155,7 +138,6 @@ export async function runRecall(input: {
     previousDeliberation: "",
     contributions: round1,
     round: 1,
-    contextWindow,
     afterCompact,
   });
 
@@ -170,11 +152,10 @@ export async function runRecall(input: {
     previousDeliberation: d1 ?? "",
     contributions: round2,
     round: 2,
-    contextWindow,
     afterCompact,
   });
 
-  return { note, plan, round1, round2, skippedBlocks };
+  return { note, plan, round1, round2 };
 }
 
 async function runDeliberation(input: {
@@ -184,11 +165,9 @@ async function runDeliberation(input: {
   previousDeliberation: string;
   contributions: BlockContribution[];
   round: 1 | 2;
-  contextWindow?: number;
   afterCompact?: boolean;
 }): Promise<string | null> {
   const expandNote = input.round === 2 && input.afterCompact;
-  const outputReserve = expandNote ? AFTER_COMPACT_NOTE_MAX_TOKENS : DELIBERATION_MAX_TOKENS;
   const userPrompt = buildDeliberationUserPrompt({
     roundNumber: input.round,
     currentContext: input.currentContext,
@@ -201,13 +180,6 @@ async function runDeliberation(input: {
     ),
     afterCompact: expandNote,
   });
-  const fits = promptFitsWindow({
-    systemPrompt: DELIBERATION_SYSTEM_PROMPT,
-    userPrompt,
-    contextWindow: input.contextWindow,
-    outputReserve,
-  });
-  if (!fits) return null;
   throwIfAborted(input.signal);
   try {
     const raw = await input.complete(
