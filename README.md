@@ -1,6 +1,12 @@
-# pi-historical-memory
+# rememory
 
 Pi extension: when context is compacted, the departing window is frozen intact as Block N on disk. Before every main-agent model call, frozen blocks are re-read against the current context. Useful past information is inserted as an ordinary session message (same kind of transcript item as a tool result).
+
+This is an experimental extension, not a benchmarked memory system. The repository is named `rememory`; its package metadata currently uses `pi-historical-memory`.
+
+## Example
+
+In a Pi session with rememory loaded, suppose you discussed why a prototype uses SQLite. After that turn has moved into a frozen block, ask why you chose SQLite. The agent can explicitly prompt recall with `echo "Memory: Why did we choose SQLite for the prototype?"`. If a frozen block contains the rationale, the recall step can bring it back into the current context. Run `/memory` to check that a block exists before trying it.
 
 ## Behavior
 
@@ -21,12 +27,12 @@ Block and deliberation calls use the **same model as the main agent**, as bare c
 
 ## Install
 
-Add the package (path or git) to Pi:
+Clone the repository with `git clone https://github.com/dcoyier/rememory.git`, then add the absolute checkout path to Pi:
 
 ```json
 {
   "packages": [
-    "/path/to/pi-historical-memory"
+    "/path/to/rememory"
   ]
 }
 ```
@@ -34,7 +40,7 @@ Add the package (path or git) to Pi:
 Or load the extension directly:
 
 ```bash
-pi -e /path/to/pi-historical-memory/src/index.ts
+pi -e /path/to/rememory/src/index.ts
 ```
 
 You can also copy or symlink this folder into `~/.pi/agent/extensions/`. `/memory off` is process-local; it does not persist across Pi restarts.
